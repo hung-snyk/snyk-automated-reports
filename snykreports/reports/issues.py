@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from ..common import SEV_RANK, change, ceil_days, is_open_at, jlist, write_csv
 from ..pdf import M, SERIES, W, stacked
-from .base import days, labels, open_pdf
+from .base import days, labels, open_pdf, period, week_starts
 
 DETAIL_COLUMNS = ["ISSUE_SEVERITY_RANK", "ISSUE_SEVERITY", "SCORE", "PROBLEM_TITLE", "CVE", "CVE_URL",
                   "CWE", "PROJECT_NAME", "PROJECT_URL", "EXPLOIT_MATURITY", "COMPUTED_FIXABILITY",
@@ -34,7 +34,7 @@ def period_stats(rows, start, end):
     # the UI counts a partial day as a full day per issue before averaging
     ttr = [ceil_days(r["_intro"], r["_res"]) for r in res]
     return {"open": sum(1 for r in rows if is_open_at(r, end)),
-            "new": sum(1 for r in rows if start <= r["_intro"] < end), "resolved": len(res),
+            "new": sum(1 for r in rows if start <= r["_open_from"] < end), "resolved": len(res),
             "mttr": round(sum(ttr) / len(ttr)) if ttr else 0}
 
 
@@ -45,13 +45,13 @@ def bucket_of(age):
 def issues_summary(ctx):
     rows = ctx.issues()
     start, end = ctx.window(30)
-    span = end - start
+    span = period(start, end)
     pts = days(start, end)
-    weeks = [start + timedelta(days=7 * i) for i in range((end - start).days // 7 + 1)]
+    weeks = week_starts(start, end)
     exposure = [[0] * len(pts) for _ in BUCKETS]
     for i, d in enumerate(pts):
         for r in rows:
-            if is_open_at(r, d): exposure[bucket_of((d - r["_intro"]).days)][i] += 1
+            if is_open_at(r, d): exposure[bucket_of((d - r["_open_from"]).days)][i] += 1
     ttr = [[0] * len(weeks) for _ in BUCKETS]
     for r in rows:
         if r["_res"] and start <= r["_res"] < end:
