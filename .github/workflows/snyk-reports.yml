@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       reports:
-        description: Comma list of report slugs, or "all"
-        default: "all"
+        description: Report(s) to build, comma-separated, e.g. issues-summary,sla-management (empty = the REPORTS variable)
+        default: ""
       days:
         description: Report window in days (empty = each report's UI default)
         default: ""
@@ -21,10 +21,11 @@ jobs:
       SNYK_ORG_ID: ${{ vars.SNYK_ORG_ID }}       # or set SNYK_GROUP_ID instead
       SNYK_GROUP_ID: ${{ vars.SNYK_GROUP_ID }}
       SNYK_REGION: ${{ vars.SNYK_REGION || 'us' }}
-      SNYK_ORG_NAME: ${{ vars.SNYK_ORG_NAME }}
-      REPORTS: ${{ inputs.reports || vars.REPORTS || 'all' }}
+      REPORTS: ${{ inputs.reports || vars.REPORTS }}   # required: the reports to build, comma-separated
       REPORT_DAYS: ${{ inputs.days }}
+      REPORT_FORMATS: ${{ vars.REPORT_FORMATS || 'pdf' }}   # pdf, csv and/or json, comma-separated
       ZERO_DAY_CVE: ${{ vars.ZERO_DAY_CVE }}
+      REPORT_FILTERS: ${{ vars.REPORT_FILTERS }}  # ;-separated --filter values
       REPORT_OUT: reports
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +33,19 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - name: Check which reports to build
+        run: |
+          if [ -z "$REPORTS" ]; then
+            echo "::error::Set the REPORTS repository variable (or the 'reports' input) to the reports to build, comma-separated. Run 'python snyk_reports.py --list' for names."
+            exit 1
+          fi
       - run: pip install -r requirements.txt
-      - run: python snyk_reports.py --save-raw
+      - run: python snyk_reports.py
       - uses: actions/upload-artifact@v4
         with:
           name: snyk-reports-${{ github.run_number }}
-          path: reports/
+          # the per-user CSV lists developer names and emails; raw exports are never saved here
+          path: |
+            reports/
+            !reports/**/*_by-user_*.csv
           retention-days: 30

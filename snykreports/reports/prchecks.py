@@ -1,11 +1,40 @@
-"""Pull Request Checks Usage & Performance (pr_checks and pr_checks_project_adoption datasets)."""
+"""Pull Request Checks Usage & Performance (pr_checks, pr_checks_project_adoption, pr_checks_integration_adoption)."""
+import os
 from collections import Counter, defaultdict
 
+from ..api import log
 from ..common import change, parse_dt, write_csv
 from ..pdf import M, SERIES, W
-from .base import days, labels, open_pdf
+from .base import days, labels, open_pdf, period
 
 PRODUCTS = [("Snyk Code", "Repos with Snyk Code PR scan"), ("Snyk Open Source", "Repos with Open Source PR scan")]
+INTEGRATION_FLAG = {"Snyk Code": "IS_PULL_REQUEST_TEST_CODE_ENABLED", "Snyk Open Source": "IS_PULL_REQUEST_TEST_OPEN_SOURCE_ENABLED"}
+
+
+def integration_settings(ctx):
+    """Current per-integration PR-check settings; empty when a --from-raw folder predates this dataset."""
+    if ctx.args.from_raw and not os.path.isfile(ctx.raw_path("pr_checks_integration_adoption")):
+        log("pr-checks-usage: no pr_checks_integration_adoption.csv in --from-raw; treating inherited settings as enabled")
+        return []
+    return [i for i in ctx.data("pr_checks_integration_adoption") if (i.get("IS_CURRENT_SETTINGS") or "").lower() == "true"]
+
+
+def repo_adoption(adoption, integration_rows):
+    """{repository: {product: PR checks on, "_source": integration type}}; a repository is on for a product
+    when any of its projects is."""
+    integrations = {i.get("ORG_SOURCE_PUBLIC_ID"): i for i in integration_rows}
+    repos = defaultdict(dict)
+    for a in adoption:
+        own = (a.get("TEST_PULL_REQUESTS") or "").lower()
+        if own: enabled = own not in ("false", "disabled", "0")
+        else:   # an empty project setting inherits its integration's PR-check setting for that product
+            i = integrations.get(a.get("ORG_SOURCE_PUBLIC_ID"))
+            flag = INTEGRATION_FLAG.get(a.get("PRODUCT_NAME"))
+            enabled = (i.get(flag) or "").lower() == "true" if i and flag else not integrations
+        repo = repos[a.get("REPOSITORY_NAME") or "Unknown"]
+        repo[a.get("PRODUCT_NAME")] = repo.get(a.get("PRODUCT_NAME"), False) or enabled
+        repo["_source"] = a.get("SOURCE_INTEGRATION_TYPE") or ""
+    return repos
 
 
 def status(r):
@@ -15,7 +44,7 @@ def status(r):
 
 def pr_checks_usage(ctx):
     start, end = ctx.window(30)
-    span = end - start
+    span = period(start, end)
     rows = ctx.data("pr_checks")
     for r in rows: r["_t"], r["_st"] = parse_dt(r.get("PR_CHECK_CREATED_AT")), status(r)
     cur = [r for r in rows if r["_t"] and start <= r["_t"] <= end]
@@ -54,13 +83,7 @@ def pr_checks_usage(ctx):
     # PROJECT_DELETED holds a deletion timestamp; deleted projects drop out, as in the UI
     adoption = [a for a in ctx.data("pr_checks_project_adoption") if (a.get("IS_CURRENT_SETTINGS") or "").lower() == "true"
                 and not a.get("PROJECT_DELETED")]
-    repos = defaultdict(dict)
-    for a in adoption:
-        # an empty project setting inherits the integration's PR-check setting
-        enabled = (a.get("TEST_PULL_REQUESTS") or "inherit").lower() not in ("false", "disabled", "0")
-        repos[a.get("REPOSITORY_NAME") or "Unknown"][a.get("PRODUCT_NAME")] = repos[a.get("REPOSITORY_NAME") or "Unknown"].get(
-            a.get("PRODUCT_NAME"), False) or enabled
-        repos[a.get("REPOSITORY_NAME") or "Unknown"]["_source"] = a.get("SOURCE_INTEGRATION_TYPE") or ""
+    repos = repo_adoption(adoption, integration_settings(ctx))
     prs = lambda rs: {(r.get("REPOSITORY_NAME"), r.get("PULL_REQUEST")) for r in rs}
     failed_prs = lambda rs: {(r.get("REPOSITORY_NAME"), r.get("PULL_REQUEST")) for r in rs if r["_st"] == "Failed"}
     tiles = []
@@ -94,7 +117,8 @@ def pr_checks_usage(ctx):
                      ["REPOSITORY", "SOURCE", "SNYK_CODE_PR_SCAN", "OPEN_SOURCE_PR_SCAN"], adopt_rows)]
     ctx.summary["pr-checks-usage"] = {"total": len(cur), "success_rate_pct": rate(cur), "failed": sc["Failed"],
                                       "pull_requests": len(prs(cur)), "prs_failed": len(failed_prs(cur)),
-                                      **{t["label"]: t["sub"] for t in tiles[:2]}}
+                                      **{t["label"]: t["sub"] for t in tiles[:2]},
+                                      "code_repos_enabled": sum(1 for r in repos.values() if r.get("Snyk Code"))}
     return out
 
 

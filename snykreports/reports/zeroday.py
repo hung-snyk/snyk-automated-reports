@@ -1,12 +1,36 @@
 """Zero-Day: progress on one or more named CVEs (--zero-day CVE-..., repeatable).
 
-The UI's "Assets involved in the incident" panel comes from a Snyk-curated feed with no public API,
-so this report covers the issue-based sections only."""
+The UI's "Assets involved in the incident" panel comes from a Snyk-curated feed with no public API; with
+--internal-api it is added for Snyk's current curated incident."""
 from collections import Counter, defaultdict
 
 from ..common import SEV_RANK, is_open_at, jlist, write_csv
+from ..internal import LayerError
 from ..pdf import M, SERIES, W
 from .base import days, labels, open_pdf
+
+
+def incident_panel(ctx, pdf):
+    """Snyk's active curated zero-day incident, as shown at the top of the UI's Zero-Day report."""
+    layers = ctx.internal()
+    if not layers: return
+    try:
+        meta = (layers.rows("zero_day_vuln_scanner__default_meta_data") or [{}])[0]
+        counts = (layers.rows("zero_day_vuln_scanner__default_finding_counts") or [{}])[0]
+        assets = layers.rows("zero_day_vuln_scanner__findings_asset_scoped")
+    except LayerError as e:
+        ctx.skipped["zero-day incident panel"] = str(e); return
+    if not meta.get("ZERO_DAY_TITLE"): return
+    pdf.section(f"Active security incident assessment: {meta['ZERO_DAY_TITLE']}",
+                f"Snyk-curated incident, started {meta.get('START_TIME', '')[:10]}. Assets with detected dependencies are listed below.")
+    pdf.tiles([{"label": "Total Assets Needing Triage", "value": counts.get("REPOSITORIES_NEEDING_ATTENTION") or 0},
+               {"label": "Known Affected Public Packages", "value": counts.get("KNOWN_AFFECTED_PACKAGES") or 0},
+               {"label": "Total dependencies impacted", "value": counts.get("AFFECTED_DEPENDENCIES") or 0},
+               {"label": "Total Cleared assets", "value": counts.get("TOTAL_CLEARED_ASSETS") or 0}])
+    pdf.table([("Asset", 0.4, "link"), ("Status", 0.2, "text"), ("Impacted Projects", 0.2, "num"), ("Impacted Dependencies", 0.2, "num")],
+              [[(a.get("PARENT_ASSET_DISPLAY_NAME"), a.get("PARENT_ASSET_LINK")), a.get("STATUS"), a.get("PROJECTS_IMPACTED") or 0,
+                a.get("VULNERABLE_DEPENDENCIES_PRESENT") or 0] for a in assets], empty="No assets involved in the incident")
+    ctx.summary.setdefault("zero-day", {})["incident"] = meta["ZERO_DAY_TITLE"]
 
 
 def zero_day(ctx):
@@ -21,6 +45,8 @@ def zero_day(ctx):
     pts = days(start, end)
     label = ", ".join(sorted(cves))
     pdf, path = open_pdf(ctx, "zero-day", "Zero-Day", [("Zero-Day Vulnerability", label)], (start, end))
+    incident_panel(ctx, pdf)
+    pdf.section(f"Issues for {label}")
     pdf.tiles([{"label": "Open Issues Remaining", "value": status["Open"]}, {"label": "Resolved Issues", "value": status["Resolved"]},
                {"label": "Ignored Issues", "value": status["Ignored"]}], w=900)
     targets = defaultdict(Counter)
@@ -53,7 +79,7 @@ def zero_day(ctx):
                            ", ".join(jlist(r.get("CWE"))), r.get("PROJECT_NAME"), r.get("PROJECT_TARGET_DISPLAY_NAME"),
                            r["_status"], r.get("EXPLOIT_MATURITY"), r.get("COMPUTED_FIXABILITY"), r.get("FIRST_INTRODUCED"),
                            r.get("PRODUCT_NAME"), r.get("ISSUE_URL")] for r in issues))
-    ctx.summary["zero-day"] = {"cve": label, "open": status["Open"], "resolved": status["Resolved"], "ignored": status["Ignored"]}
+    ctx.summary.setdefault("zero-day", {}).update({"cve": label, "open": status["Open"], "resolved": status["Resolved"], "ignored": status["Ignored"]})
     return [path, csv_path]
 
 

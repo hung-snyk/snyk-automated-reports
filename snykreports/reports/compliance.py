@@ -91,7 +91,7 @@ def control_report(ctx, slug, title, controls, with_cwe):
     pdf.save()
     head = ["CONTROL"] + (["CWE"] if with_cwe else []) + [s.upper() for s in SEVERITIES] + ["TOTAL"]
     csv_path = write_csv(ctx.path(slug, "csv"), head, table + [["All Controls"] + ([""] if with_cwe else []) + total])
-    ctx.summary[slug] = dict(zip(["critical", "high", "medium", "low", "total"], total))
+    ctx.summary[slug] = dict(zip(["critical", "high", "medium", "low", "total"], total), controls={t[0]: t[-1] for t in table})
     return [path, csv_path]
 
 
@@ -104,12 +104,16 @@ def pci_dss(ctx):
     rows, start, end = scoped(ctx, sevs)
     cats = PCI_CATEGORIES + [("Attacks via High-Risk Vulnerabilities", None)]
 
-    def in_cat(r, cwes):   # "high-risk" = on the CISA KEV catalogue (assumption; Snyk does not document it)
-        return (r.get("CISA_KEV") or "").lower() == "true" if cwes is None else bool(r["_cwes"] & set(cwes))
-    elected = [r for r in rows if any(in_cat(r, c) for _, c in cats)]
+    def in_cat(r, cwes):
+        # Snyk does not document what puts an issue in "high-risk"; the UI showed none for any scope we
+        # checked (CISA KEV issues included), so the category stays empty rather than guessed
+        return False if cwes is None else bool(r["_cwes"] & set(cwes))
+    # like the UI, an issue counts once, in the first matching category (in the order above)
+    category = {id(r): next((n for n, c in cats if in_cat(r, c)), None) for r in rows}
+    elected = [r for r in rows if category[id(r)]]
     table = []
     for name, cwes in cats:
-        ages = [pci_age(r, end) for r in rows if in_cat(r, cwes)]
+        ages = [pci_age(r, end) for r in rows if category[id(r)] == name]
         table.append([name] + [sum(lo <= a <= hi for a in ages) for _, lo, hi in PCI_AGES])
     total = [sum(t[i] for t in table) for i in range(1, 4)]
     violations = sum(1 for r in elected if pci_age(r, end) > 30)
@@ -130,7 +134,8 @@ def pci_dss(ctx):
     pdf.save()
     csv_path = write_csv(ctx.path("pci-dss-v4.0.1", "csv"), ["ATTACK_CATEGORY"] + [a[0].upper() for a in PCI_AGES],
                          table + [["Total"] + total])
-    ctx.summary["pci-dss-v4.0.1"] = {"violations": violations, "under_15": total[0], "15_30": total[1], "over_30": total[2]}
+    ctx.summary["pci-dss-v4.0.1"] = {"violations": violations, "under_15": total[0], "15_30": total[1], "over_30": total[2],
+                                     "severities": sevs}
     return [path, csv_path]
 
 

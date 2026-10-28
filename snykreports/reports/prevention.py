@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 
 from ..common import change, parse_dt, write_csv
 from ..pdf import M, SERIES, W
-from .base import open_pdf
+from .base import open_pdf, period
 
 SURFACES = [("Snyk Studio", "MCP"), ("IDE", "IDE"), ("Local CLI", "CLI"), ("PR Check", "PR_CHECK")]
 
@@ -23,7 +23,7 @@ def months(start, end):
 
 def prevention(ctx):
     start, end = ctx.window(90)
-    span = end - start
+    span = period(start, end)
     rows = [e for e in ctx.data("prevention_events") if (e.get("IS_SUPPRESSED") or "").lower() != "true"]
     for e in rows: e["_t"] = parse_dt(e.get("EVENT_TIMESTAMP"))
     cur = [e for e in rows if e["_t"] and start <= e["_t"] <= end]

@@ -1,4 +1,4 @@
-"""Snyk API client: Export API jobs (REST) and the v1 dependencies listing."""
+"""Snyk API client: Export API jobs (REST) and the v1 dependencies and licenses listings."""
 import csv, io, json, sys, time, uuid, urllib.error, urllib.parse, urllib.request
 
 API_VERSION = "2024-10-15"
@@ -77,5 +77,76 @@ def list_dependencies(base, org_id, token, per_page=1000):
         out += j.get("results", [])
         if not j.get("results") or len(out) >= j.get("total", 0): break
         page += 1
-    log(f"dependencies: {len(out)} rows")
+    log(f"dependencies: {len(out)} rows for org {org_id}")
     return out
+
+
+LICENSE_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3}
+
+
+def license_key(name):
+    """Dependencies write compound licenses as "(MIT OR X11)"; the licenses API as "MIT OR X11"."""
+    name = (name or "").strip()
+    return name[1:-1] if name.startswith("(") and name.endswith(")") else name
+
+
+def list_licenses(base, org_id, token):
+    """The org's licenses from the v1 API, with the severity its license policy gives each one."""
+    try: org_id = str(uuid.UUID(org_id))
+    except ValueError: fail(f"--org-id must be a UUID, got {org_id!r}")
+    out = call("POST", f"{base}/v1/org/{org_id}/licenses?sortBy=license&order=asc", token, {},
+               content_type="application/json").get("results", [])
+    log(f"licenses: {len(out)} rows for org {org_id}")
+    return out
+
+
+def with_license_policy(deps, licenses):
+    """Copy each license's policy severity and instructions onto the dependencies that carry it."""
+    policy = {license_key(l["id"]): l for l in licenses}
+    for d in deps:
+        for l in d.get("licenses", []):
+            p = policy.get(license_key(l.get("license")))
+            if p: l.update(severity=p.get("severity") or "none", instructions=p.get("instructions") or "")
+    return deps
+
+
+def scope_name(base, scope, scope_id, token):
+    """Display name of an org or group (scope is "orgs" or "groups"); "Snyk" if it can't be read."""
+    try:
+        return call("GET", f"{scope_root(base, scope, scope_id)}?version={API_VERSION}", token)["data"]["attributes"]["name"]
+    except (SystemExit, KeyError, TypeError):
+        log(f"warning: couldn't read the {scope[:-1]}'s name from Snyk; the report header shows 'Snyk'")
+        return "Snyk"
+
+
+def list_group_orgs(base, group_id, token):
+    url = f"{scope_root(base, 'groups', group_id)}/orgs?version={API_VERSION}&limit=100"
+    ids = []
+    while url:
+        j = call("GET", url, token)
+        ids += [o["id"] for o in j.get("data", [])]
+        nxt = (j.get("links") or {}).get("next")
+        url = f"{base}/rest{nxt.removeprefix('/rest')}" if nxt and nxt.startswith("/") else nxt
+    log(f"group has {len(ids)} orgs")
+    return ids
+
+
+def merge_dependencies(per_org):
+    """Combine per-org dependency lists: one row per package@version, projects concatenated.
+    Orgs can have different license policies; a license keeps its most severe rating. Issue counts and
+    dependenciesWithIssues depend on each org's projects, so they take the highest count and the union."""
+    merged = {}
+    for deps in per_org:
+        for d in deps:
+            m = merged.setdefault(d["id"], dict(d, projects=[], dependenciesWithIssues=[],
+                                                licenses=[dict(l) for l in d.get("licenses", [])]))
+            m["projects"] = m["projects"] + d.get("projects", [])
+            m["dependenciesWithIssues"] = list(dict.fromkeys(m["dependenciesWithIssues"] + d.get("dependenciesWithIssues", [])))
+            for k in ("issuesCritical", "issuesHigh", "issuesMedium", "issuesLow"):
+                m[k] = max(m.get(k) or 0, d.get(k) or 0)
+            theirs = {l.get("license"): l for l in d.get("licenses", [])}
+            for l in m["licenses"]:
+                t = theirs.get(l.get("license"), {})
+                if LICENSE_RANK.get(t.get("severity"), -1) > LICENSE_RANK.get(l.get("severity"), -1):
+                    l.update(severity=t["severity"], instructions=t.get("instructions", ""))
+    return list(merged.values())
