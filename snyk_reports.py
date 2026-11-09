@@ -51,7 +51,7 @@ def main(argv=None):
     ap.add_argument("--group-id", help="group to report on, across all its orgs (default: SNYK_GROUP_ID)")
     ap.add_argument("--scope", choices=["org", "group"], default=env("SNYK_SCOPE"),
                     help="which ID to use when both are set (default: the one given on the command line, "
-                         "else the org)")
+                         "else the group)")
     ap.add_argument("--region", choices=api.REGIONS, default=env("SNYK_REGION", "us"))
     ap.add_argument("--from-raw", help="folder of datasets saved by --save-raw; no API calls")
     ap.add_argument("--from-csv", help="issues export or UI 'Issues Detail' CSV, for the issue-based reports only")
@@ -69,7 +69,8 @@ def main(argv=None):
                          "COLUMN=last30days (repeatable; every filter must match; see README)")
     ap.add_argument("--sla", default=env("SLA_TARGETS"), help="SLA targets, e.g. critical=15:3,high=30:10 (days:at-risk days)")
     ap.add_argument("--zero-day", action="append", default=[c for c in (env("ZERO_DAY_CVE") or "").split(",") if c],
-                    help="CVE for the Zero-Day report (repeatable)")
+                    help="CVE or Snyk vulnerability ID (SNYK-...) for the Zero-Day report (repeatable); "
+                         "with --internal-api it defaults to Snyk's active zero-day incident")
     ap.add_argument("--max-projects", type=int, default=int(env("REPORT_MAX_PROJECTS", 50)),
                     help="rows in the Issues Summary project table; the UI shows 50 (0 = all)")
     ap.add_argument("--max-rows", type=int, default=int(env("REPORT_MAX_ROWS", 200)),
@@ -101,10 +102,11 @@ def main(argv=None):
         ap.error(f"--format takes pdf, csv and/or json, comma-separated; got {a.format!r}")
     common.FORMATS = formats
     if a.snyk_token: os.environ["SNYK_TOKEN"] = a.snyk_token
-    # an ID on the command line picks the scope; IDs from .env/the environment only fill in what's missing
-    given = "group" if a.group_id and not a.org_id else "org" if a.org_id else None
+    # group scope is the default; an ID on the command line picks the scope, and IDs from .env/the environment only
+    # fill in what's missing
+    given = "org" if a.org_id and not a.group_id else "group" if a.group_id else None
     a.org_id, a.group_id = a.org_id or env("SNYK_ORG_ID"), a.group_id or env("SNYK_GROUP_ID")
-    a.scope = a.scope or given or ("org" if a.org_id else "group")
+    a.scope = a.scope or given or ("org" if a.org_id and not a.group_id else "group")
     if not (a.from_raw or a.from_csv) and not (a.org_id if a.scope == "org" else a.group_id):
         ap.error(f"--scope {a.scope} needs --{a.scope}-id (or SNYK_{a.scope.upper()}_ID)")
     if a.from_csv and not a.from_raw:

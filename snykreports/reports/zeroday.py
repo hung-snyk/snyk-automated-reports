@@ -1,7 +1,8 @@
-"""Zero-Day: progress on one or more named CVEs (--zero-day CVE-..., repeatable).
+"""Zero-Day: progress on one or more named vulnerabilities (--zero-day CVE-... or SNYK-..., repeatable).
 
-The UI's "Assets involved in the incident" panel comes from a Snyk-curated feed with no public API; with
---internal-api it is added for Snyk's current curated incident."""
+Snyk's curated incidents (the UI's default selection and its "Assets involved in the incident" panel) come from a
+feed with no public API. With --internal-api the panel is added, and without --zero-day the report tracks the
+active incident's CVEs."""
 from collections import Counter, defaultdict
 
 from ..common import SEV_RANK, is_open_at, jlist, write_csv
@@ -10,17 +11,24 @@ from ..pdf import M, SERIES, W
 from .base import days, labels, open_pdf
 
 
-def incident_panel(ctx, pdf):
-    """Snyk's active curated zero-day incident, as shown at the top of the UI's Zero-Day report."""
+def active_incident(ctx):
+    """Snyk's active curated zero-day incident (title, start, CVE_IDS, ...), or None without --internal-api."""
     layers = ctx.internal()
-    if not layers: return
+    if not layers: return None
+    try: meta = (layers.rows("zero_day_vuln_scanner__default_meta_data") or [{}])[0]
+    except LayerError as e:
+        ctx.skipped["zero-day incident panel"] = str(e); return None
+    return meta if meta.get("ZERO_DAY_TITLE") and meta.get("IS_ACTIVE", True) else None
+
+
+def incident_panel(ctx, pdf, meta):
+    """The incident assessment shown at the top of the UI's Zero-Day report."""
+    layers = ctx.internal()
     try:
-        meta = (layers.rows("zero_day_vuln_scanner__default_meta_data") or [{}])[0]
         counts = (layers.rows("zero_day_vuln_scanner__default_finding_counts") or [{}])[0]
         assets = layers.rows("zero_day_vuln_scanner__findings_asset_scoped")
     except LayerError as e:
         ctx.skipped["zero-day incident panel"] = str(e); return
-    if not meta.get("ZERO_DAY_TITLE"): return
     pdf.section(f"Active security incident assessment: {meta['ZERO_DAY_TITLE']}",
                 f"Snyk-curated incident, started {meta.get('START_TIME', '')[:10]}. Assets with detected dependencies are listed below.")
     pdf.tiles([{"label": "Total Assets Needing Triage", "value": counts.get("REPOSITORIES_NEEDING_ATTENTION") or 0},
@@ -34,18 +42,21 @@ def incident_panel(ctx, pdf):
 
 
 def zero_day(ctx):
-    cves = set(ctx.args.zero_day or [])
+    cves = {c.strip().upper() for c in ctx.args.zero_day or [] if c.strip()}
+    incident = active_incident(ctx)
+    if not cves and incident: cves = set(jlist(incident.get("CVE_IDS")))
     if not cves:
-        ctx.skipped["zero-day"] = "pass --zero-day CVE-YYYY-NNNN (or set ZERO_DAY_CVE) to pick the vulnerability"
+        ctx.skipped["zero-day"] = ("pass --zero-day CVE-YYYY-NNNN or SNYK-... (or set ZERO_DAY_CVE), or add --internal-api "
+                                   "to track Snyk's active zero-day incident" + (" (none is active now)" if ctx.args.internal_api else ""))
         return []
-    all_rows = [r for r in ctx.data("issues") if cves & set(jlist(r.get("CVE")))]
+    all_rows = [r for r in ctx.data("issues") if r.get("PROBLEM_ID") in cves or cves & set(jlist(r.get("CVE")))]
     status = Counter(r["_status"] for r in all_rows)
     rows = [r for r in all_rows if r["_status"] != "Ignored"]
     start, end = ctx.window(30)
     pts = days(start, end)
     label = ", ".join(sorted(cves))
     pdf, path = open_pdf(ctx, "zero-day", "Zero-Day", [("Zero-Day Vulnerability", label)], (start, end))
-    incident_panel(ctx, pdf)
+    if incident: incident_panel(ctx, pdf, incident)
     pdf.section(f"Issues for {label}")
     pdf.tiles([{"label": "Open Issues Remaining", "value": status["Open"]}, {"label": "Resolved Issues", "value": status["Resolved"]},
                {"label": "Ignored Issues", "value": status["Ignored"]}], w=900)
