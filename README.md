@@ -17,11 +17,12 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in this folder with your token and org ID (**Settings → General**):
+Create a `.env` file in this folder with your token and group ID (**Group settings → General**). Reports cover every
+org in the group; to report on one org instead, set `SNYK_ORG_ID` and leave out the group ID, or pass `--scope org`.
 
 ```
 SNYK_TOKEN=your-token
-SNYK_ORG_ID=your-org-id
+SNYK_GROUP_ID=your-group-id
 ```
 
 Then build a report. This writes `reports/snyk_issues-summary_<date>.pdf`:
@@ -40,7 +41,7 @@ python3 snyk_reports.py --report issues-summary
 | `risk-exposure` | open issues by severity, 30-day trend |
 | `vulnerabilities-detail` | open issues grouped by vulnerability |
 | `sla-management` | Critical and High issues against targets of 15/30/90/180 days |
-| `zero-day` | the CVEs you name with `--zero-day` |
+| `zero-day` | the CVEs or Snyk vulnerability IDs you name with `--zero-day` |
 | `owasp-top-10-2025`, `cwe-top-25-2023`, `cwe-top-10-kev-2023` | open issues introduced in the last 30 days |
 | `pci-dss-v4.0.1` | open Critical issues introduced in the last 30 days |
 | `prevention` | issues fixed before merge, last 90 days |
@@ -60,13 +61,13 @@ python3 snyk_reports.py --report issues-summary,sla-management,owasp-top-10-2025
 # other formats
 python3 snyk_reports.py --report issues-summary --format pdf,csv,json
 
-# a group (all its orgs) instead of the org
-python3 snyk_reports.py --report issues-summary --group-id your-group-id
+# one org instead of the group
+python3 snyk_reports.py --report issues-summary --org-id your-org-id
 
 # a different date range (default: each report's UI range, ending today in UTC)
 python3 snyk_reports.py --report issues-summary --days 90 --end 2026-09-30
 
-# Zero-Day needs the CVEs to track
+# Zero-Day needs the CVEs or Snyk vulnerability IDs to track
 python3 snyk_reports.py --report zero-day --zero-day CVE-2026-111497
 ```
 
@@ -121,11 +122,11 @@ and variables win over `.env`.
 | `--format pdf,csv,json` | `REPORT_FORMATS` | `pdf` |
 | `--org-id` / `--group-id` | `SNYK_ORG_ID` / `SNYK_GROUP_ID` | one is required |
 | `--snyk-token` | `SNYK_TOKEN` | required; prefer `.env` |
-| `--scope org\|group` | `SNYK_SCOPE` | the ID in the command, else the org |
+| `--scope org\|group` | `SNYK_SCOPE` | the ID in the command, else the group (the org when only an org ID is set) |
 | `--region us\|eu\|au\|us2` | `SNYK_REGION` | `us` |
 | `--days`, `--end` | `REPORT_DAYS` | each report's UI range, ending today |
 | `--filter` | `REPORT_FILTERS` (`;`-separated) | none |
-| `--zero-day CVE-…` | `ZERO_DAY_CVE` (comma list) | none; Zero-Day is skipped |
+| `--zero-day CVE-…` or `SNYK-…` | `ZERO_DAY_CVE` (comma list) | none; Zero-Day is skipped |
 | `--sla critical=15:3,…` (days to fix : at-risk days) | `SLA_TARGETS` | the UI's targets |
 | `--severity`, `--product`, `--include-ignored` | | the UI's defaults |
 | `--max-projects`, `--max-rows` (PDF table rows, `0` = all) | `REPORT_MAX_PROJECTS`, `REPORT_MAX_ROWS` | `50`, `200` |
@@ -144,7 +145,7 @@ These aren't available because the Export API doesn't include their data:
 | IDE/CLI usage: scans by AI agent | grouped by runtime environment | no AI agent name |
 | IDE/CLI usage: scans by product | can be lower than the UI | non-scan events often have no product |
 | CI/CD: committed repositories | not shown | no SCM commit data |
-| Zero-Day: "Assets involved in the incident" | not shown | comes from a Snyk-curated feed |
+| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | comes from a Snyk-curated feed |
 | Filters for CISA KEV, CVSS v4 exploit maturity, risk factors, CI/CD test parameters | not available | no matching columns |
 
 ## Security
