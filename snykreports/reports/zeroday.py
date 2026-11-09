@@ -1,19 +1,19 @@
 """Zero-Day: progress on one or more named vulnerabilities (--zero-day CVE-... or SNYK-..., repeatable).
 
 Snyk's curated incidents (the UI's default selection and its "Assets involved in the incident" panel) come from a
-feed with no public API. With --internal-api the panel is added, and without --zero-day the report tracks the
+feed with no public API. With --experimental the panel is added, and without --zero-day the report tracks the
 active incident's CVEs."""
 from collections import Counter, defaultdict
 
 from ..common import SEV_RANK, is_open_at, jlist, write_csv
-from ..internal import LayerError
+from ..panels import LayerError
 from ..pdf import M, SERIES, W
 from .base import days, labels, open_pdf
 
 
 def active_incident(ctx):
-    """Snyk's active curated zero-day incident (title, start, CVE_IDS, ...), or None without --internal-api."""
-    layers = ctx.internal()
+    """Snyk's active curated zero-day incident (title, start, CVE_IDS, ...), or None without --experimental."""
+    layers = ctx.experimental()
     if not layers: return None
     try: meta = (layers.rows("zero_day_vuln_scanner__default_meta_data") or [{}])[0]
     except LayerError as e:
@@ -23,7 +23,7 @@ def active_incident(ctx):
 
 def incident_panel(ctx, pdf, meta):
     """The incident assessment shown at the top of the UI's Zero-Day report."""
-    layers = ctx.internal()
+    layers = ctx.experimental()
     try:
         counts = (layers.rows("zero_day_vuln_scanner__default_finding_counts") or [{}])[0]
         assets = layers.rows("zero_day_vuln_scanner__findings_asset_scoped")
@@ -46,8 +46,8 @@ def zero_day(ctx):
     incident = active_incident(ctx)
     if not cves and incident: cves = set(jlist(incident.get("CVE_IDS")))
     if not cves:
-        ctx.skipped["zero-day"] = ("pass --zero-day CVE-YYYY-NNNN or SNYK-... (or set ZERO_DAY_CVE), or add --internal-api "
-                                   "to track Snyk's active zero-day incident" + (" (none is active now)" if ctx.args.internal_api else ""))
+        ctx.skipped["zero-day"] = ("pass --zero-day CVE-YYYY-NNNN or SNYK-... (or set ZERO_DAY_CVE), or add --experimental "
+                                   "to track Snyk's active zero-day incident" + (" (none is active now)" if ctx.args.experimental else ""))
         return []
     all_rows = [r for r in ctx.data("issues") if r.get("PROBLEM_ID") in cves or cves & set(jlist(r.get("CVE")))]
     status = Counter(r["_status"] for r in all_rows)

@@ -37,7 +37,7 @@ def main(argv=None):
     """Build the selected reports; returns the run context (None for --list) so other tools can reuse a run."""
     load_dotenv()
     try:
-        from snykreports.reports import INTERNAL_ONLY, REPORTS, UNSUPPORTED
+        from snykreports.reports import EXPERIMENTAL_ONLY, REPORTS, UNSUPPORTED
     except ImportError as e:
         api.fail(f"{e}; install dependencies with: pip install -r requirements.txt")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -70,19 +70,19 @@ def main(argv=None):
     ap.add_argument("--sla", default=env("SLA_TARGETS"), help="SLA targets, e.g. critical=15:3,high=30:10 (days:at-risk days)")
     ap.add_argument("--zero-day", action="append", default=[c for c in (env("ZERO_DAY_CVE") or "").split(",") if c],
                     help="CVE or Snyk vulnerability ID (SNYK-...) for the Zero-Day report (repeatable); "
-                         "with --internal-api it defaults to Snyk's active zero-day incident")
+                         "with --experimental it defaults to Snyk's active zero-day incident")
     ap.add_argument("--max-projects", type=int, default=int(env("REPORT_MAX_PROJECTS", 50)),
                     help="rows in the Issues Summary project table; the UI shows 50 (0 = all)")
     ap.add_argument("--max-rows", type=int, default=int(env("REPORT_MAX_ROWS", 200)),
                     help="rows in long PDF tables (0 = all); CSVs always have every row")
     ap.add_argument("--generated-by", default=env("REPORT_AUTHOR") or env("GITHUB_ACTOR") or env("USER", "snyk_reports"))
     ap.add_argument("--out", default=env("REPORT_OUT", "reports"))
-    ap.add_argument("--internal-api", action="store_true", default=(env("SNYK_INTERNAL_API") or "").lower() in ("1", "true", "yes"),
-                    help="also use the UI's undocumented reporting API for panels the Export API lacks, and for the "
-                         "Snyk Generated Pull Requests report (unsupported by Snyk; may change without notice)")
+    ap.add_argument("--experimental", action="store_true", default=(env("SNYK_EXPERIMENTAL") or "").lower() in ("1", "true", "yes"),
+                    help="also use Snyk's experimental Analytics API to fill the panels the Export API lacks, and to "
+                         "enable the Snyk Generated Pull Requests report (experimental APIs may change without notice)")
     a = ap.parse_args(argv)
 
-    hidden = set() if a.internal_api else INTERNAL_ONLY
+    hidden = set() if a.experimental else EXPERIMENTAL_ONLY
     if a.list:
         for slug, (title, _) in REPORTS.items():
             if slug not in hidden: print(f"{slug:32} {title}")

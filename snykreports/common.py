@@ -189,21 +189,21 @@ class Ctx:
         self.summary, self.skipped = {}, {}   # headline numbers per report, and reports skipped with a reason
 
     def layers(self):
-        """Client for the UI's internal reporting API (see internal.py); only used when asked for."""
+        """Client for the experimental Analytics API (see panels.py); only used with --experimental."""
         if self._layers is None:
-            from .internal import Layers
+            from .panels import Layers
             a = self.args
             token = os.environ.get("SNYK_TOKEN") or api.fail("set SNYK_TOKEN (environment or .env)")
             scope, sid = ("orgs", a.org_id) if a.scope == "org" else ("groups", a.group_id)
-            if not sid: api.fail(f"--internal-api needs --{a.scope}-id")
+            if not sid: api.fail(f"--experimental needs --{a.scope}-id")
             api.scope_root(api.REGIONS[a.region], scope, sid)   # validates the id
             self._layers = Layers(api.REGIONS[a.region], scope, sid, token)
         return self._layers
 
-    def internal(self, panel=None):
-        """The internal API client when --internal-api is on. Pass `panel` for data that --filter/--product should
+    def experimental(self, panel=None):
+        """The panel-data client when --experimental is on. Pass `panel` for data that --filter/--product should
         narrow: the UI's panels can't apply those, so on a filtered run the panel falls back to the export."""
-        if not self.args.internal_api: return None
+        if not self.args.experimental: return None
         if panel and (self.args.filter or self.args.product):
             api.log(f"{panel}: built from the export, because --filter/--product can't be applied to the UI's panel")
             return None

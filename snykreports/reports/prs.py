@@ -1,14 +1,14 @@
-"""Snyk Generated Pull Requests. No public API exposes Snyk-created PRs, so this report needs --internal-api
-(the UI's undocumented reporting API)."""
+"""Snyk Generated Pull Requests. No public API exposes Snyk-created PRs, so this report needs --experimental
+(Snyk's experimental Analytics API)."""
 from ..common import write_csv
-from ..internal import LayerError, d
+from ..panels import LayerError, d
 from .base import open_pdf
 
 
 def snyk_generated_prs(ctx):
-    layers = ctx.internal()
+    layers = ctx.experimental()
     if not layers:
-        ctx.skipped["snyk-generated-prs"] = "needs --internal-api (no public API exposes Snyk-generated PR data)"
+        ctx.skipped["snyk-generated-prs"] = "needs --experimental (no public API exposes Snyk-generated PR data)"
         return []
     start, end = ctx.window(90)
     f = dict(pr_activity_start=d(start), pr_activity_end=d(end))
@@ -18,7 +18,7 @@ def snyk_generated_prs(ctx):
         issues = layers.rows("prs_issues_table", **f)
         repos = layers.rows("table_pr_repo_breakdown", **f)
     except LayerError as e:
-        ctx.skipped["snyk-generated-prs"] = f"internal API error: {e}"
+        ctx.skipped["snyk-generated-prs"] = f"Snyk Analytics error: {e}"
         return []
     hours = big.get("HOURS_TO_MERGE")
     ttm = "No merges" if hours is None else (f"{hours / 24:.1f} days" if hours >= 24 else f"{hours:.1f} hours")
@@ -47,7 +47,7 @@ def snyk_generated_prs(ctx):
            write_csv(ctx.path("snyk-generated-prs_by-repository", "csv"),
                      ["REPOSITORY", "TOTAL_PRS", "OPEN", "MERGED", "CLOSED", "MERGE_RATE"], repo_rows)]
     ctx.summary["snyk-generated-prs"] = {"created": big.get("TOTAL_PRS_OPENED") or 0, "merged": big.get("MERGED_PRS") or 0,
-                                         "source": "internal reporting API"}
+                                         "source": "Snyk Analytics (experimental)"}
     return out
 
 

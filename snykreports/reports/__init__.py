@@ -7,5 +7,5 @@ for _m in (overview, issues, risk, sla, zeroday, compliance, prevention, prcheck
 
 # Reports with no data source at all.
 UNSUPPORTED = {}
-# Reports the Export API can't build; they're hidden from --list and refused unless --internal-api is on.
-INTERNAL_ONLY = {"snyk-generated-prs"}
+# Reports the Export API can't build; they're hidden from --list and refused unless --experimental is on.
+EXPERIMENTAL_ONLY = {"snyk-generated-prs"}

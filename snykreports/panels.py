@@ -1,8 +1,8 @@
-"""Optional: Snyk Analytics' internal reporting API, the "layers" behind each UI panel.
+"""Optional: Snyk's experimental Analytics API, the "layers" behind each UI panel.
 
-It is undocumented and versioned as experimental (2023-02-24~experimental), so Snyk can change or remove it
-without notice. It is only used when asked for:
-  --internal-api  fills panels the Export API has no data for (and the Snyk Generated Pull Requests report)
+Like any Snyk API version tagged ~experimental, it can change or go away without notice. It is only used when
+asked for:
+  --experimental  fills panels the Export API has no data for (and the Snyk Generated Pull Requests report)
   verify()        compares this tool's headline numbers with what the UI computes (used by a maintainer-only check)
 """
 import json, time, urllib.error, urllib.request

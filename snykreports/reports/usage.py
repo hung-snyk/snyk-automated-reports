@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 
 from ..common import change, jlist, parse_dt, write_csv
-from ..internal import d
+from ..panels import d
 from ..pdf import M, SERIES, W
 from .base import labels, open_pdf, period, week_starts
 
@@ -55,7 +55,7 @@ def dev_ide_cli_usage(ctx):
     cols = lambda first: [(first, 0.5, "text"), ("Developers", 0.25, "num"), ("Scans", 0.25, "num")]
     by_agent = group([r for r in rows if r["_env"] == "Agentic integrations"], lambda r: r.get("RUNTIME_ENVIRONMENT_NAME") or "Not reported")
     by_product = group(rows, product)
-    layers = ctx.internal("IDE/CLI agent and product tables")
+    layers = ctx.experimental("IDE/CLI agent and product tables")
     if layers:   # the export has no agent name, and no product for non-scan events; the UI's own panels do
         f = dict(date_range_start=d(start), date_range_end=d(end))
         by_agent = sorted(([r["RUNTIME_ENVIRONMENT_NAME"], r["UNIQUE_DEVELOPERS"], r["TOTAL_SCANS"]]
@@ -94,7 +94,7 @@ def dev_ide_cli_usage(ctx):
 
 def test_usage_in_cicd(ctx):
     """Committed-repository counts come from SCM commit data that the Export API does not have; they are
-    included only with --internal-api."""
+    included only with --experimental."""
     start, end = ctx.window(30)
     span = period(start, end)
     rows = [r for r in prep(ctx, start, end) if r.get("INTERACTION_STAGE") == "cicd" and "test" in r["_cat"]]
@@ -110,7 +110,7 @@ def test_usage_in_cicd(ctx):
     weeks = week_starts(start, end)
     wk = lambda w: [r for r in cur if w <= r["_t"] < w + timedelta(days=7)]
     series = [("Tested repositories", SERIES[2], [len({r.get("INTERACTION_TARGET_ID") for r in wk(w)}) for w in weeks])]
-    layers, committed = ctx.internal("CI/CD committed repositories"), {}
+    layers, committed = ctx.experimental("CI/CD committed repositories"), {}
     if layers:
         f = dict(cli_calendar_start=d(start), cli_calendar_end=d(end))
         by_day = {r["DAY"]: r["TOTAL_REPOS_WITH_RECENT_COMMITS"] or 0 for r in layers.rows("line_repos_with_recent_commits_vs_test_repos", **f)}
