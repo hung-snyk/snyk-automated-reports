@@ -49,6 +49,7 @@ python3 snyk_reports.py --report issues-summary
 | `dev-ide-cli-usage` | IDE and CLI scans, last 30 days |
 | `test-usage-in-cicd-pipelines` | repositories tested in CI/CD, last 30 days |
 | `dependencies-and-licenses` | open-source dependencies and their licenses |
+| `snyk-generated-prs` | pull requests Snyk opened, last 90 days; needs `--experimental` (see [Limitations](#limitations)) |
 
 `python3 snyk_reports.py --list` prints the names.
 
@@ -135,21 +136,27 @@ and variables win over `.env`.
 | `--max-projects`, `--max-rows` (PDF table rows, `0` = all) | `REPORT_MAX_PROJECTS`, `REPORT_MAX_ROWS` | `50`, `200` |
 | `--lookback-days` | | `400`; raise it for `--days` over 200 |
 | `--generated-by`, `--out` | `REPORT_AUTHOR`, `REPORT_OUT` | your user name, `reports` |
+| `--experimental` | `SNYK_EXPERIMENTAL=1` | off; see [Limitations](#limitations) |
 
 Exit codes: `0` success, `1` API or input error, `2` bad arguments.
 
 ## Limitations
 
-These aren't available because the Export API doesn't include their data:
+These are missing or partial because the Export API doesn't include their data. Most of them are available with
+`--experimental`, which also reads from Snyk's experimental Analytics API. Like any Snyk API version tagged
+experimental, it can change or stop working without notice, so it's off by default.
 
-| Report or panel | Status | Reason |
-|---|---|---|
-| Snyk Generated Pull Requests | not supported | no data on Snyk-created pull requests |
-| IDE/CLI usage: scans by AI agent | grouped by runtime environment | no AI agent name |
-| IDE/CLI usage: scans by product | can be lower than the UI | non-scan events often have no product |
-| CI/CD: committed repositories | not shown | no SCM commit data |
-| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | comes from a Snyk-curated feed |
-| Filters for risk factors (Deployed, Public facing, OS condition) and CI/CD test parameters | not available | no matching columns |
+| Report or panel | Export API only | With `--experimental` | Reason |
+|---|---|---|---|
+| Snyk Generated Pull Requests | not available | available | no data on Snyk-created pull requests |
+| IDE/CLI usage: scans by AI agent | grouped by runtime environment | by AI agent, as in the UI\* | no AI agent name |
+| IDE/CLI usage: scans by product | can be lower than the UI | as in the UI\* | non-scan events often have no product |
+| CI/CD: committed repositories | not shown | shown | no SCM commit data |
+| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | comes from a Snyk-curated feed |
+| Filters for risk factors (Deployed, Public facing, OS condition) and CI/CD test parameters | not available | not available | no matching columns |
+
+\* Unfiltered runs only. Those panels can't apply `--filter` or `--product`, so on a filtered run the script builds
+them from the Export API as usual and says so in its log.
 
 ## Security
 

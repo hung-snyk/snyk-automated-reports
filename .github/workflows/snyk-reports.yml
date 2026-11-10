@@ -26,6 +26,7 @@ jobs:
       REPORT_FORMATS: ${{ vars.REPORT_FORMATS || 'pdf' }}   # pdf, csv and/or json, comma-separated
       ZERO_DAY_CVE: ${{ vars.ZERO_DAY_CVE }}
       REPORT_FILTERS: ${{ vars.REPORT_FILTERS }}  # ;-separated --filter values
+      SNYK_EXPERIMENTAL: ${{ vars.SNYK_EXPERIMENTAL }}   # 1 = also use the experimental Analytics API (see README)
       REPORT_OUT: reports
     steps:
       - uses: actions/checkout@v4
