@@ -1,4 +1,4 @@
-"""Tests for the date-window, open-at, MTTR, SLA and PR-check adoption rules, and CSV cell safety. Run: python -m unittest discover -s tests"""
+"""Tests for the date-window, open-at, MTTR, SLA, PR-check adoption and scan-counting rules, and CSV cell safety. Run: python -m unittest discover -s tests"""
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -9,6 +9,7 @@ from snykreports.reports.issues import bucket_of, period_stats
 from snykreports.reports.overview import MTTR_BUCKETS
 from snykreports.reports.prchecks import repo_adoption
 from snykreports.reports.sla import open_status, parse_targets, sla_fields
+from snykreports.reports.usage import environment
 
 END = date(2026, 10, 28)
 
@@ -174,6 +175,30 @@ class CsvCells(unittest.TestCase):
     def test_reading_back_undoes_the_prefix(self):
         for v in ("=x", "@y", "-a", "it's", "'quoted", "plain"):
             self.assertEqual(unsafe_cell(safe_cell(v)), v)
+
+
+class ScanEnvironment(unittest.TestCase):
+    # Event kinds from a real usage export, matched day by day against the UI's IDE, CLI and agentic scan counts
+    @staticmethod
+    def event(app, categories, integration="TS_BINARY_WRAPPER", status="Success"):
+        return {"RUNTIME_APPLICATION_NAME": app, "_cat": categories, "RUNTIME_INTEGRATION_NAME": integration,
+                "INTERACTION_STATUS": status}
+
+    def test_tests_are_scans_whether_or_not_they_pass(self):
+        self.assertEqual(environment(self.event("snyk-cli", ["code", "test", "json"])), "Snyk CLI")
+        self.assertEqual(environment(self.event("snyk-cli", ["oss", "test", "json"], status="Failure")), "Snyk CLI")
+        self.assertEqual(environment(self.event("snyk-cli", ["secrets", "test", "json"])), "Snyk CLI")
+
+    def test_tests_an_agent_ran_through_mcp_are_agentic(self):
+        self.assertEqual(environment(self.event("snyk-cli", ["code", "test", "json"], integration="MCP")), "Agentic integrations")
+
+    def test_language_server_scans_are_ide(self):
+        self.assertEqual(environment(self.event("snyk-ls", ["iac", "test"], integration="VS_CODE")), "Snyk IDE plugins")
+
+    def test_other_events_are_not_scans(self):
+        for app, cat in [("snyk-cli", ["mcp"]), ("snyk-cli", ["version"]), ("snyk-cli", ["auth"]),
+                         ("snyk-cli", ["oss", "fix", "agentic"]), ("ldx-sync", ["api", "ldx-sync"]), ("snyk-ls", [])]:
+            self.assertIsNone(environment(self.event(app, cat)), cat)
 
 
 if __name__ == "__main__":
