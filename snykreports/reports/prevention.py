@@ -24,7 +24,8 @@ def months(start, end):
 def prevention(ctx):
     start, end = ctx.window(90)
     span = period(start, end)
-    rows = [e for e in ctx.data("prevention_events") if (e.get("IS_SUPPRESSED") or "").lower() != "true"]
+    rows = ctx.data("prevention_events")
+    if not ctx.keeps_ignored("IS_SUPPRESSED"): rows = [e for e in rows if (e.get("IS_SUPPRESSED") or "").lower() != "true"]
     for e in rows: e["_t"] = parse_dt(e.get("EVENT_TIMESTAMP"))
     cur = [e for e in rows if e["_t"] and start <= e["_t"] <= end]
     prev = [e for e in rows if e["_t"] and start - span <= e["_t"] < start]

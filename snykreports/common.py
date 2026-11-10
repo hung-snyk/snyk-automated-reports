@@ -321,9 +321,17 @@ class Ctx:
         low = lambda v: v.lower() if isinstance(v, str) else v
         return [r for r in rows if all(f.match(low(v.get(f.column))) for v in [fields(r)] for f in fs)] if fs else rows
 
+    def keeps_ignored(self, column):
+        """Whether ignored rows stay in: with --include-ignored, or when a --filter on `column` picks them itself."""
+        return self.args.include_ignored or any(f.column == column for f in self.args.filter)
+
+    def default_statuses(self, *statuses):
+        """A report's default Issue Status. An ISSUE_STATUS --filter replaces it, like changing the UI's status chip."""
+        return None if any(f.column == "ISSUE_STATUS" for f in self.args.filter) else list(statuses)
+
     def issues(self, statuses=None):
         rows = self.data("issues")
-        if not self.args.include_ignored: rows = [r for r in rows if r["_status"] != "Ignored"]
+        if not self.keeps_ignored("ISSUE_STATUS"): rows = [r for r in rows if r["_status"] != "Ignored"]
         return [r for r in rows if r["_status"] in statuses] if statuses else rows
 
     # ---- output

@@ -15,7 +15,7 @@ BUCKETS = [("more than 30 days", 31, 10**6), ("15-30 days", 15, 30), ("less than
 
 
 def issues_detail(ctx):
-    sel = [r for r in ctx.issues(["Open"]) if not ctx.args.severity or r.get("ISSUE_SEVERITY") in ctx.args.severity]
+    sel = [r for r in ctx.issues(ctx.default_statuses("Open")) if not ctx.args.severity or r.get("ISSUE_SEVERITY") in ctx.args.severity]
     sel.sort(key=lambda r: (-SEV_RANK.get(r.get("ISSUE_SEVERITY"), 0), -float(r.get("SCORE") or 0)))
     compact = lambda v: json.dumps(v, separators=(",", ":"))
 

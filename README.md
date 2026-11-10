@@ -109,7 +109,10 @@ python3 snyk_reports.py --report risk-exposure \
   `GIT_REPO`, `GIT_BRANCH` (Prevention); `ENVIRONMENT_DISPLAY_NAME`, `INTERACTION_TARGET_ID` (usage reports);
   `DEPENDENCY_TYPE`, `IS_DEPRECATED`, `LICENSE` (Dependencies; `dockerfile` is left out unless you filter on
   `DEPENDENCY_TYPE`, as in the UI).
-- Attack Vector: `SNYK_CVSS_VECTOR~AV:N` (Network), `AV:A`, `AV:L` or `AV:P`.
+- Attack Vector: `SNYK_CVSS_VECTOR~AV:N` (Network), `AV:A`, `AV:L` or `AV:P`. CISA KEV: `CISA_KEV=true`.
+  CVSS v4 exploit maturity: `EXPLOIT_MATURITY_CVSS_V4=Attacked` (or `Proof of Concept`, `Not Defined`).
+- Ignored issues and Prevention events are left out unless you pass `--include-ignored` or filter on their status
+  yourself, such as `ISSUE_STATUS=Ignored` or `IS_SUPPRESSED=true`.
 
 ### Options
 
@@ -146,7 +149,7 @@ These aren't available because the Export API doesn't include their data:
 | IDE/CLI usage: scans by product | can be lower than the UI | non-scan events often have no product |
 | CI/CD: committed repositories | not shown | no SCM commit data |
 | Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | comes from a Snyk-curated feed |
-| Filters for CISA KEV, CVSS v4 exploit maturity, risk factors, CI/CD test parameters | not available | no matching columns |
+| Filters for risk factors (Deployed, Public facing, OS condition) and CI/CD test parameters | not available | no matching columns |
 
 ## Security
 
