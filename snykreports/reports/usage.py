@@ -22,11 +22,17 @@ def prep(ctx, start, end):
     return rows
 
 
+AGENTS = {"claude-code": "Claude"}   # RUNTIME_ENVIRONMENT_NAME of agent-run scans, as the UI names the agent
+
+
 def environment(r):
-    """Classification that reproduces the UI's counts: agentic = MCP-tagged events,
-    IDE = language-server scans, everything else is counted as CLI."""
-    if "mcp" in r["_cat"]: return "Agentic integrations"
-    if r.get("RUNTIME_APPLICATION_NAME") == "snyk-ls" and r.get("INTERACTION_TYPE") == "Scan done": return "Snyk IDE plugins"
+    """Where a scan ran, as the UI counts it, or None for an event that isn't a scan. Every test is a scan, failed
+    or not; version, auth, config, fix and MCP tool-call events aren't. Agentic scans are tests an agent ran through
+    Snyk's MCP server (integration MCP; the environment names the agent), IDE scans come from the language server,
+    and every other test is a CLI scan. Checked day by day against the UI's own counts."""
+    if "test" not in r["_cat"]: return None
+    if r.get("RUNTIME_INTEGRATION_NAME") == "MCP": return "Agentic integrations"
+    if r.get("RUNTIME_APPLICATION_NAME") == "snyk-ls": return "Snyk IDE plugins"
     return "Snyk CLI"
 
 
@@ -47,21 +53,16 @@ def dev_ide_cli_usage(ctx):
     start, end = ctx.window(30)
     rows = [r for r in prep(ctx, start, end) if start <= r["_t"] <= end and r.get("INTERACTION_STAGE") != "cicd"]
     for r in rows: r["_env"] = environment(r)
+    rows = [r for r in rows if r["_env"]]
     env = Counter(r["_env"] for r in rows)
     pdf, path = open_pdf(ctx, "dev-ide-cli-usage", "Developer IDE and CLI usage", date_range=(start, end))
     pdf.tiles([{"label": "Developers", "value": len({r.get("USER_EMAIL") for r in rows if r.get("USER_EMAIL")})},
                {"label": "IDE scans", "value": env["Snyk IDE plugins"] + env["Agentic integrations"]},
                {"label": "CLI scans", "value": env["Snyk CLI"]}, {"label": "Agentic scans", "value": env["Agentic integrations"]}])
     cols = lambda first: [(first, 0.5, "text"), ("Developers", 0.25, "num"), ("Scans", 0.25, "num")]
-    by_agent = group([r for r in rows if r["_env"] == "Agentic integrations"], lambda r: r.get("RUNTIME_ENVIRONMENT_NAME") or "Not reported")
+    agent = lambda r: AGENTS.get(r.get("RUNTIME_ENVIRONMENT_NAME"), r.get("RUNTIME_ENVIRONMENT_NAME")) or "Not reported"
+    by_agent = group([r for r in rows if r["_env"] == "Agentic integrations"], agent)
     by_product = group(rows, product)
-    layers = ctx.experimental("IDE/CLI agent and product tables")
-    if layers:   # the export has no agent name, and no product for non-scan events; the UI's own panels do
-        f = dict(date_range_start=d(start), date_range_end=d(end))
-        by_agent = sorted(([r["RUNTIME_ENVIRONMENT_NAME"], r["UNIQUE_DEVELOPERS"], r["TOTAL_SCANS"]]
-                           for r in layers.rows("table_unique_developers_by_agent", **f)), key=lambda t: (-t[2], t[0]))
-        by_product = sorted(([r["PRODUCT"], r["UNIQUE_DEVELOPERS"], r["TOTAL_SCANS"]]
-                             for r in layers.rows("table_unique_developers_by_product", **f)), key=lambda t: (-t[2], t[0]))
     tables = [("Environment usage by developers", "Environment", group(rows, lambda r: r["_env"])),
               ("Developers running scans by IDE", "IDE",
                group([r for r in rows if r["_env"] == "Snyk IDE plugins"], lambda r: IDES.get(r.get("RUNTIME_INTEGRATION_NAME"), "Other IDEs"))),

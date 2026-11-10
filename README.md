@@ -149,14 +149,9 @@ experimental, it can change or stop working without notice, so it's off by defau
 | Report or panel | Export API only | With `--experimental` | Reason |
 |---|---|---|---|
 | Snyk Generated Pull Requests | not available | available | no data on Snyk-created pull requests |
-| IDE/CLI usage: scans by AI agent | grouped by runtime environment | by AI agent, as in the UI\* | no AI agent name |
-| IDE/CLI usage: scans by product | can be lower than the UI | as in the UI\* | non-scan events often have no product |
 | CI/CD: committed repositories | not shown | shown | no SCM commit data |
 | Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | comes from a Snyk-curated feed |
 | Filters for risk factors (Deployed, Public facing, OS condition) and CI/CD test parameters | not available | not available | no matching columns |
-
-\* Unfiltered runs only. Those panels can't apply `--filter` or `--product`, so on a filtered run the script builds
-them from the Export API as usual and says so in its log.
 
 ## Security
 
