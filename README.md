@@ -9,7 +9,7 @@ numbers and tables).
 
 ## Quick start
 
-You need Python 3.9+ and a Snyk API token (**Account settings → General → Auth Token**, or a service account token)
+You need Python 3.10+ and a Snyk API token (**Account settings → General → Auth Token**, or a service account token)
 that can read your org or group.
 
 ```bash
