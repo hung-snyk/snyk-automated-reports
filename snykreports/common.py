@@ -225,8 +225,8 @@ class Ctx:
     def data(self, name):
         if name in self._cache: return self._cache[name]
         a = self.args
-        if name == "issues" and a.from_csv:
-            rows = read_csv(os.path.realpath(a.from_csv))
+        if name == "issues" and a.from_csv:   # may be this tool's own Issues Detail CSV, so undo safe_cell()
+            rows = [{k: unsafe_cell(v) for k, v in r.items()} for r in read_csv(os.path.realpath(a.from_csv))]
         elif a.from_raw:
             path = self.raw_path(name, "json" if name == "dependencies" else "csv")
             if not os.path.isfile(path): api.fail(f"{path} not found (run once with --save-raw)")
@@ -361,9 +361,27 @@ def end_report():
     return tables
 
 
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def safe_cell(v):
+    """Text a spreadsheet would run as a formula (it starts with =, +, -, @, tab or CR), prefixed with ' so it shows
+    as text. Project, repository, package and user names come from customers' repos, so they can start that way.
+    Numbers are left alone, including negative ones such as an overdue TIME_UNTIL_BREACH."""
+    if not isinstance(v, str) or not v.startswith(FORMULA_START): return v
+    try: float(v); return v
+    except ValueError: return "'" + v
+
+
+def unsafe_cell(v):
+    """Undo safe_cell(), for reading a CSV this tool wrote."""
+    return v[1:] if isinstance(v, str) and v.startswith("'") and v[1:].startswith(FORMULA_START) else v
+
+
 def write_csv(path, header, body, raw=False):
     """Write a report table as CSV (if --format includes csv) and keep it for the report's JSON file.
-    raw=True is for datasets saved by --save-raw, which are always written. Returns the path, or None."""
+    raw=True is for datasets saved by --save-raw, which are always written, unchanged so --from-raw reads back
+    exactly what Snyk sent; report tables go through safe_cell(). Returns the path, or None."""
     rows = [list(r) for r in body]
     if not raw and _tables is not None:
         _tables.append((os.path.basename(path), list(header), rows))
@@ -372,7 +390,7 @@ def write_csv(path, header, body, raw=False):
     # deepcode ignore PT: the output folder is the operator's own --out choice; filename is generated
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
-        w.writerow(header); w.writerows(rows)
+        w.writerow(header); w.writerows(rows if raw else ([safe_cell(v) for v in r] for r in rows))
     return path
 
 
