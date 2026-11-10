@@ -11,7 +11,9 @@ def open_pdf(ctx, slug, title, filters=(), date_range=None):
     pdf = Pdf(path, title, enabled="pdf" in FORMATS)
     if not pdf.enabled: path = None
     a = ctx.args
-    filt = list(filters) + [("Is Currently Ignored", str(a.include_ignored))]
+    # an ISSUE_STATUS or IS_SUPPRESSED filter decides about ignored rows itself, and is listed below
+    picks_status = any(f.column in ("ISSUE_STATUS", "IS_SUPPRESSED") for f in a.filter)
+    filt = list(filters) + ([] if picks_status else [("Is Currently Ignored", str(a.include_ignored))])
     if a.product: filt.append(("Product", ", ".join(a.product)))
     filt += [f.label() for f in a.filter]
     end = date_range[1] if date_range else ctx.window(0)[1]

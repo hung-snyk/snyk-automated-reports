@@ -57,7 +57,7 @@ PCI_AGES = [("Under 15 Days Old", 0, 14), ("15-30 Days Old", 15, 30), ("Over 30 
 
 def scoped(ctx, severities=None):
     start, end = ctx.window(30)
-    rows = [r for r in ctx.issues(["Open"]) if start <= r["_intro"] <= end]
+    rows = [r for r in ctx.issues(ctx.default_statuses("Open")) if start <= r["_intro"] <= end]
     if severities: rows = [r for r in rows if r.get("ISSUE_SEVERITY") in severities]
     for r in rows: r["_cwes"] = cwe_ids(r)
     return rows, start, end

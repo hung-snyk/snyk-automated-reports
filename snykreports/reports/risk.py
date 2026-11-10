@@ -48,7 +48,7 @@ def risk_exposure(ctx):
 
 
 def vulnerabilities_detail(ctx):
-    open_ = ctx.issues(["Open"])
+    open_ = ctx.issues(ctx.default_statuses("Open"))
     vulns = defaultdict(list)
     for r in open_: vulns[r.get("PROBLEM_ID")].append(r)
     table = []
