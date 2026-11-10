@@ -44,8 +44,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: snyk-reports-${{ github.run_number }}
-          # the per-user CSV lists developer names and emails; raw exports are never saved here
-          path: |
-            reports/
-            !reports/**/*_by-user_*.csv
+          path: reports/    # raw exports are never saved here
           retention-days: 30

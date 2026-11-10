@@ -1,9 +1,9 @@
-"""Tests for the date-window, open-at, MTTR, SLA and PR-check adoption rules. Run: python -m unittest discover -s tests"""
+"""Tests for the date-window, open-at, MTTR, SLA and PR-check adoption rules, and CSV cell safety. Run: python -m unittest discover -s tests"""
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from snykreports.common import Ctx, ceil_days, change, is_open_at, prepare_issues
+from snykreports.common import Ctx, ceil_days, change, is_open_at, prepare_issues, safe_cell, unsafe_cell
 from snykreports.reports.base import days, period, week_starts
 from snykreports.reports.issues import bucket_of, period_stats
 from snykreports.reports.overview import MTTR_BUCKETS
@@ -159,6 +159,21 @@ class Adoption(unittest.TestCase):
 class Change(unittest.TestCase):
     def test_zero_baseline_counts_as_one(self):
         self.assertEqual((change(5, 0), change(0, 0), change(15, 10), change(5, 10)), (500, 0, 50, -50))
+
+
+class CsvCells(unittest.TestCase):
+    # A name from a customer's repo can start like a spreadsheet formula; the report CSVs show it as text instead
+    def test_formula_text_is_prefixed(self):
+        for v in ("=HYPERLINK(\"x\")", "+1+1", "-2+cmd|' /C calc'!A0", "@SUM(A1)", "\tx", "\rx"):
+            self.assertEqual(safe_cell(v), "'" + v)
+
+    def test_numbers_and_plain_text_are_unchanged(self):
+        for v in ("-12", "-0.5", "+3", "payments-api", "", 7, -7, None):
+            self.assertEqual(safe_cell(v), v)
+
+    def test_reading_back_undoes_the_prefix(self):
+        for v in ("=x", "@y", "-a", "it's", "'quoted", "plain"):
+            self.assertEqual(unsafe_cell(safe_cell(v)), v)
 
 
 if __name__ == "__main__":
