@@ -122,25 +122,37 @@ python3 snyk_reports.py --report risk-exposure \
 
 ### Options
 
-Each option can also be set as the environment variable shown, or in `.env`. The command wins over variables,
-and variables win over `.env`.
-
-| Option | Env var | Default |
+| Option | What it does | Example |
 |---|---|---|
-| `--report` | `REPORTS` | required |
-| `--format pdf,csv,json` | `REPORT_FORMATS` | `pdf` |
-| `--org-id` / `--group-id` | `SNYK_ORG_ID` / `SNYK_GROUP_ID` | one is required |
-| `--snyk-token` | `SNYK_TOKEN` | required; prefer `.env` |
-| `--scope org\|group` | `SNYK_SCOPE` | the ID in the command, else the group (the org when only an org ID is set) |
-| `--region us\|eu\|au\|us2` | `SNYK_REGION` | `us` |
-| `--days`, `--end` | `REPORT_DAYS` | each report's UI range, ending today |
-| `--filter` | `REPORT_FILTERS` (`;`-separated) | none |
-| `--zero-day CVE-…` or `SNYK-…` | `ZERO_DAY_CVE` (comma list) | none; Zero-Day is skipped |
-| `--sla critical=15:3,…` (days to fix : at-risk days) | `SLA_TARGETS` | the UI's targets |
-| `--severity`, `--product`, `--include-ignored` | | the UI's defaults |
-| `--max-projects`, `--max-rows` (PDF table rows, `0` = all) | `REPORT_MAX_PROJECTS`, `REPORT_MAX_ROWS` | `50`, `200` |
-| `--lookback-days` | | `400`; raise it for `--days` over 200 |
-| `--generated-by`, `--out` | `REPORT_AUTHOR`, `REPORT_OUT` | your user name, `reports` |
+| `--report` | Reports to build, comma-separated. Required. | `--report issues-summary,sla-management` |
+| `--list` | Prints the report names and exits. | `--list` |
+| `--format` | Output formats: `pdf` (default), `csv`, `json`. | `--format pdf,csv` |
+| `--group-id` | Reports on a group, across all its orgs. | `--group-id <group-id>` |
+| `--org-id` | Reports on one org. | `--org-id <org-id>` |
+| `--scope` | Which ID to use when both are set: `group` (default) or `org`. | `--scope org` |
+| `--snyk-token` | Your API token. Prefer `SNYK_TOKEN` in `.env`. | `--snyk-token <token>` |
+| `--region` | Where your Snyk account is hosted: `us` (default), `eu`, `au`, `us2`. | `--region eu` |
+| `--days` | Length of the date range in days. Default: each report's UI range. | `--days 90` |
+| `--end` | Last day of the date range. Default: today (UTC). | `--end 2026-09-30` |
+| `--filter` | Keeps only matching rows; see [Filters](#filters). Repeatable. | `--filter "ISSUE_SEVERITY=Critical,High"` |
+| `--product` | Only these Snyk products. Repeatable. | `--product "Snyk Code"` |
+| `--severity` | Only these severities, in Issues Detail, SLA Management and PCI-DSS. | `--severity critical,high` |
+| `--include-ignored` | Also counts ignored issues and Prevention events. | `--include-ignored` |
+| `--zero-day` | CVEs or Snyk vulnerability IDs for the Zero-Day report, which needs at least one. | `--zero-day CVE-2021-44228` |
+| `--sla` | Days to fix and "at risk" days per severity. Default: the UI's targets. | `--sla critical=7:2,high=14:5` |
+| `--max-projects` | Rows in the Issues Summary project table. Default 50; `0` = all. | `--max-projects 0` |
+| `--max-rows` | Rows in other long PDF tables. Default 200; `0` = all. CSV and JSON always have every row. | `--max-rows 500` |
+| `--lookback-days` | Days of usage, Prevention and PR check history to download. Default 400; raise it for `--days` over 200. | `--lookback-days 800` |
+| `--save-raw` | Also saves the downloaded data in `<out>/raw/`. | `--save-raw` |
+| `--from-raw` | Builds from data saved by `--save-raw`, without downloading. | `--from-raw reports/raw` |
+| `--from-csv` | Builds the issue-based reports from an issues CSV. | `--from-csv issues_detail.csv` |
+| `--generated-by` | Name in the PDF header ("Report Generated <date> by <name>"). Default: your user name. | `--generated-by "Security team"` |
+| `--out` | Folder for the reports. Default: `reports`. | `--out ~/snyk-reports` |
+
+You can also set these in `.env` or the environment, which suits CI: `SNYK_TOKEN`, `SNYK_GROUP_ID`, `SNYK_ORG_ID`,
+`SNYK_SCOPE`, `SNYK_REGION`, `REPORTS`, `REPORT_FORMATS`, `REPORT_DAYS`, `REPORT_FILTERS` (`;`-separated),
+`ZERO_DAY_CVE` (comma-separated), `SLA_TARGETS`, `REPORT_MAX_PROJECTS`, `REPORT_MAX_ROWS`, `REPORT_AUTHOR` and
+`REPORT_OUT`. An option on the command line wins over the environment, and the environment wins over `.env`.
 
 Exit codes: `0` success, `1` API or input error, `2` bad arguments.
 
