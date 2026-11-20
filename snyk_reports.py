@@ -73,17 +73,13 @@ def main(argv=None):
                          "COLUMN=last30days (repeatable; every filter must match; see README)")
     ap.add_argument("--sla", default=env("SLA_TARGETS"), help="SLA targets, e.g. critical=15:3,high=30:10 (days:at-risk days)")
     ap.add_argument("--zero-day", action="append", default=[c for c in (env("ZERO_DAY_CVE") or "").split(",") if c],
-                    help="CVE or Snyk vulnerability ID (SNYK-...) for the Zero-Day report (repeatable); "
-                         "with --experimental it defaults to Snyk's active zero-day incident")
+                    help="CVE or Snyk vulnerability ID (SNYK-...) for the Zero-Day report (repeatable; required for that report)")
     ap.add_argument("--max-projects", type=int, default=int(env("REPORT_MAX_PROJECTS", 50)),
                     help="rows in the Issues Summary project table; the UI shows 50 (0 = all)")
     ap.add_argument("--max-rows", type=int, default=int(env("REPORT_MAX_ROWS", 200)),
                     help="rows in long PDF tables (0 = all); CSVs always have every row")
     ap.add_argument("--generated-by", default=env("REPORT_AUTHOR") or env("GITHUB_ACTOR") or env("USER", "snyk_reports"))
     ap.add_argument("--out", default=env("REPORT_OUT", "reports"))
-    ap.add_argument("--experimental", action="store_true", default=(env("SNYK_EXPERIMENTAL") or "").lower() in ("1", "true", "yes"),
-                    help="also use Snyk's experimental Analytics API to fill the panels the Export API lacks "
-                         "(experimental APIs may change without notice)")
     a = ap.parse_args(argv)
 
     if a.list:

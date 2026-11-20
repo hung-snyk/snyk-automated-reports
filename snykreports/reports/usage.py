@@ -3,7 +3,6 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 
 from ..common import change, jlist, parse_dt, write_csv
-from ..panels import d
 from ..pdf import M, SERIES, W
 from .base import labels, open_pdf, period, week_starts
 
@@ -94,8 +93,8 @@ def dev_ide_cli_usage(ctx):
 
 
 def test_usage_in_cicd(ctx):
-    """Committed-repository counts come from SCM commit data that the Export API does not have; they are
-    included only with --experimental."""
+    """The UI also compares tested repositories with repositories that had recent commits. Those commit counts come
+    from source-control data that no supported API provides, so this report shows tested repositories only."""
     start, end = ctx.window(30)
     span = period(start, end)
     rows = [r for r in prep(ctx, start, end) if r.get("INTERACTION_STAGE") == "cicd" and "test" in r["_cat"]]
@@ -111,14 +110,7 @@ def test_usage_in_cicd(ctx):
     weeks = week_starts(start, end)
     wk = lambda w: [r for r in cur if w <= r["_t"] < w + timedelta(days=7)]
     series = [("Tested repositories", SERIES[2], [len({r.get("INTERACTION_TARGET_ID") for r in wk(w)}) for w in weeks])]
-    layers, committed = ctx.experimental("CI/CD committed repositories"), {}
-    if layers:
-        f = dict(cli_calendar_start=d(start), cli_calendar_end=d(end))
-        by_day = {r["DAY"]: r["TOTAL_REPOS_WITH_RECENT_COMMITS"] or 0 for r in layers.rows("line_repos_with_recent_commits_vs_test_repos", **f)}
-        series.append(("Repositories with recent commits", SERIES[4], [by_day.get(d(w), 0) for w in weeks]))
-        committed = {r["ORG_DISPLAY_NAME"]: r["COMMITTED_REPOSITORIES_CURRENT"] or 0 for r in layers.rows("table_adoption_by_orgs", **f)}
-    pdf.chart_block("Repository Test Adoption", "Repositories tested in CI/CD per week" +
-                    (", compared with repositories with recent commits" if committed else ""), labels(weeks), series,
+    pdf.chart_block("Repository Test Adoption", "Repositories tested in CI/CD per week", labels(weeks), series,
                     advance=False, label_every=1, fill=False)
     pdf.chart_block("Test Success Rate Trend", "The success rate of tests in CI/CD pipelines across the selected date range",
                     labels(weeks), [("Success rate %", SERIES[3], [round(ok(wk(w)) / len(wk(w)) * 100) if wk(w) else 0 for w in weeks])],
@@ -126,12 +118,11 @@ def test_usage_in_cicd(ctx):
     pdf.new_page()
     by_org = defaultdict(list)
     for r in cur: by_org[r.get("ORG_DISPLAY_NAME") or r.get("ORG_SLUG")].append(r)
-    for o in committed: by_org.setdefault(o, [])
-    org_rows = [[o, len({r.get("INTERACTION_TARGET_ID") for r in rs})] + ([committed.get(o, 0)] if committed else []) +
-                [f"{ok(rs) / len(rs) * 100:.0f}%" if rs else "-"] for o, rs in by_org.items()]
+    org_rows = [[o, len({r.get("INTERACTION_TARGET_ID") for r in rs}), f"{ok(rs) / len(rs) * 100:.0f}%" if rs else "-"]
+                for o, rs in by_org.items()]
     pdf.section("Adoption by Organization")
-    pdf.table([("Organization", 0.4, "text"), ("Tested Repositories", 0.2, "num")] +
-              ([("Committed Repositories", 0.2, "num")] if committed else []) + [("Success Rate", 0.2, "right")], org_rows, w=900)
+    pdf.table([("Organization", 0.4, "text"), ("Tested Repositories", 0.2, "num"), ("Success Rate", 0.2, "right")],
+              org_rows, w=900)
     by_repo = defaultdict(list)
     for r in cur: by_repo[r.get("INTERACTION_TARGET_ID") or "Unknown"].append(r)
     repo_rows = [[t, f"{max(r['_t'] for r in rs):%b %d, %Y}", rs[0].get("ORG_DISPLAY_NAME") or ""] +
@@ -143,8 +134,7 @@ def test_usage_in_cicd(ctx):
     csv_path = write_csv(ctx.path("test-usage-in-cicd-pipelines", "csv"),
                          ["REPOSITORY", "LAST_TEST", "ORGANIZATION"] + [p.upper() for p in CICD_PRODUCTS], repo_rows)
     ctx.summary["test-usage-in-cicd-pipelines"] = {**{p: repos(cur, p) for p in CICD_PRODUCTS},
-                                                   "tested_repos": len({r.get("INTERACTION_TARGET_ID") for r in cur}),
-                                                   **({"committed_repos": sum(committed.values())} if committed else {})}
+                                                   "tested_repos": len({r.get("INTERACTION_TARGET_ID") for r in cur})}
     return [path, csv_path]
 
 
