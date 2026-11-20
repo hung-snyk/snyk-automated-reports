@@ -122,32 +122,32 @@ python3 snyk_reports.py --report risk-exposure \
 
 ### Options
 
-| Option | What it does | Example |
+| Option | Values | Example |
 |---|---|---|
-| `--report` | Reports to build, comma-separated. Required. | `--report issues-summary,sla-management` |
-| `--list` | Prints the report names and exits. | `--list` |
-| `--format` | Output formats: `pdf` (default), `csv`, `json`. | `--format pdf,csv` |
-| `--group-id` | Reports on a group, across all its orgs. | `--group-id <group-id>` |
-| `--org-id` | Reports on one org. | `--org-id <org-id>` |
-| `--scope` | Which ID to use when both are set: `group` (default) or `org`. | `--scope org` |
-| `--snyk-token` | Your API token. Prefer `SNYK_TOKEN` in `.env`. | `--snyk-token <token>` |
-| `--region` | Where your Snyk account is hosted: `us` (default), `eu`, `au`, `us2`. | `--region eu` |
-| `--days` | Length of the date range in days. Default: each report's UI range. | `--days 90` |
-| `--end` | Last day of the date range. Default: today (UTC). | `--end 2026-09-30` |
-| `--filter` | Keeps only matching rows; see [Filters](#filters). Repeatable. | `--filter "ISSUE_SEVERITY=Critical,High"` |
-| `--product` | Only these Snyk products. Repeatable. | `--product "Snyk Code"` |
-| `--severity` | Only these severities, in Issues Detail, SLA Management and PCI-DSS. | `--severity critical,high` |
-| `--include-ignored` | Also counts ignored issues and Prevention events. | `--include-ignored` |
-| `--zero-day` | CVEs or Snyk vulnerability IDs for the Zero-Day report, which needs at least one. | `--zero-day CVE-2021-44228` |
-| `--sla` | Days to fix and "at risk" days per severity. Default: the UI's targets. | `--sla critical=7:2,high=14:5` |
-| `--max-projects` | Rows in the Issues Summary project table. Default 50; `0` = all. | `--max-projects 0` |
-| `--max-rows` | Rows in other long PDF tables. Default 200; `0` = all. CSV and JSON always have every row. | `--max-rows 500` |
-| `--lookback-days` | Days of usage, Prevention and PR check history to download. Default 400; raise it for `--days` over 200. | `--lookback-days 800` |
-| `--save-raw` | Also saves the downloaded data in `<out>/raw/`. | `--save-raw` |
-| `--from-raw` | Builds from data saved by `--save-raw`, without downloading. | `--from-raw reports/raw` |
-| `--from-csv` | Builds the issue-based reports from an issues CSV. | `--from-csv issues_detail.csv` |
-| `--generated-by` | Name in the PDF header ("Report Generated <date> by <name>"). Default: your user name. | `--generated-by "Security team"` |
-| `--out` | Folder for the reports. Default: `reports`. | `--out ~/snyk-reports` |
+| `--report` | one or more names from [Reports](#reports), comma-separated (required) | `--report issues-summary,sla-management` |
+| `--list` | no value | `--list` |
+| `--format` | `pdf` (default), `csv`, `json`, comma-separated | `--format pdf,csv` |
+| `--group-id` | a group ID | `--group-id <group-id>` |
+| `--org-id` | an org ID | `--org-id <org-id>` |
+| `--scope` | `group` (default), `org` | `--scope org` |
+| `--snyk-token` | a Snyk API token (prefer `SNYK_TOKEN` in `.env`) | `--snyk-token <token>` |
+| `--region` | `us` (default), `eu`, `au`, `us2` | `--region eu` |
+| `--days` | a number of days, 1 or more (default: each report's UI range) | `--days 90` |
+| `--end` | a date, `YYYY-MM-DD` (default: today, UTC) | `--end 2026-09-30` |
+| `--filter` | `COLUMN=VALUE` and the other forms in [Filters](#filters); repeatable | `--filter "ISSUE_SEVERITY=Critical,High"` |
+| `--product` | `Snyk Open Source`, `Snyk Code`, `Snyk Container`, `Snyk IaC`, `Snyk Secrets`; repeatable | `--product "Snyk Code"` |
+| `--severity` | `critical`, `high`, `medium`, `low`, any case, comma-separated | `--severity critical,high` |
+| `--include-ignored` | no value | `--include-ignored` |
+| `--zero-day` | a CVE (`CVE-…`) or Snyk vulnerability ID (`SNYK-…`); repeat the flag for more | `--zero-day CVE-2021-44228` |
+| `--sla` | `SEVERITY=DAYS` or `SEVERITY=DAYS:AT_RISK_DAYS`, comma-separated (default: `critical=15:3,high=30:10,medium=90:20,low=180:30`) | `--sla critical=7:2,high=14:5` |
+| `--max-projects` | a number, 0 or more; `0` = all (default 50) | `--max-projects 0` |
+| `--max-rows` | a number, 0 or more; `0` = all (default 200) | `--max-rows 500` |
+| `--lookback-days` | a number of days, 1 or more (default 400) | `--lookback-days 800` |
+| `--save-raw` | no value | `--save-raw` |
+| `--from-raw` | a folder saved by `--save-raw` | `--from-raw reports/raw` |
+| `--from-csv` | an issues CSV file | `--from-csv issues_detail.csv` |
+| `--generated-by` | any name (default: your user name) | `--generated-by "Security team"` |
+| `--out` | a folder (default: `reports`) | `--out ~/snyk-reports` |
 
 You can also set these in `.env` or the environment, which suits CI: `SNYK_TOKEN`, `SNYK_GROUP_ID`, `SNYK_ORG_ID`,
 `SNYK_SCOPE`, `SNYK_REGION`, `REPORTS`, `REPORT_FORMATS`, `REPORT_DAYS`, `REPORT_FILTERS` (`;`-separated),
