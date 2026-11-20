@@ -153,7 +153,6 @@ experimental, it can change or stop working without notice, so it's off by defau
 
 | Report or panel | Without `--experimental` | With `--experimental` | Why it's missing |
 |---|---|---|---|
-| Snyk Generated Pull Requests | not available | not available | None of the Export API's datasets cover the fix, backlog and upgrade pull requests that Snyk opens, and Snyk has no supported API for them. Use the report in the Snyk web UI. |
 | Repositories Tested in CI/CD: repositories with recent commits | not shown | shown | The UI compares tested repositories with repositories that had commits, which Snyk reads from your source control. The export only records Snyk's own tests. |
 | Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | Snyk curates the active incident and its affected assets, and that feed isn't in any export dataset. |
 | Filters for risk factors (Deployed, Public facing, OS condition) | not available | not available | Risk factors come from Snyk Insights, and the issues export has no columns for them. |
