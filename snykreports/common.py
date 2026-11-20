@@ -183,31 +183,10 @@ class Ctx:
     def __init__(self, args, out, end_day):
         self.args, self.out, self.end_day = args, out, end_day
         self.stamp = end_day.strftime("%m_%d_%Y")
-        self._cache, self._layers = {}, None
+        self._cache = {}
         self._raw = {}
         for f in args.filter: f.resolve(end_day)
         self.summary, self.skipped = {}, {}   # headline numbers per report, and reports skipped with a reason
-
-    def layers(self):
-        """Client for the experimental Analytics API (see panels.py); only used with --experimental."""
-        if self._layers is None:
-            from .panels import Layers
-            a = self.args
-            token = os.environ.get("SNYK_TOKEN") or api.fail("set SNYK_TOKEN (environment or .env)")
-            scope, sid = ("orgs", a.org_id) if a.scope == "org" else ("groups", a.group_id)
-            if not sid: api.fail(f"--experimental needs --{a.scope}-id")
-            api.scope_root(api.REGIONS[a.region], scope, sid)   # validates the id
-            self._layers = Layers(api.REGIONS[a.region], scope, sid, token)
-        return self._layers
-
-    def experimental(self, panel=None):
-        """The panel-data client when --experimental is on. Pass `panel` for data that --filter/--product should
-        narrow: the UI's panels can't apply those, so on a filtered run the panel falls back to the export."""
-        if not self.args.experimental: return None
-        if panel and (self.args.filter or self.args.product):
-            api.log(f"{panel}: built from the export, because --filter/--product can't be applied to the UI's panel")
-            return None
-        return self.layers()
 
     def window(self, default_days):
         """Window for a "last N days" preset, as the UI computes it: from the start of (end day - N) through the

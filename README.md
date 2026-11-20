@@ -141,18 +141,23 @@ and variables win over `.env`.
 | `--max-projects`, `--max-rows` (PDF table rows, `0` = all) | `REPORT_MAX_PROJECTS`, `REPORT_MAX_ROWS` | `50`, `200` |
 | `--lookback-days` | | `400`; raise it for `--days` over 200 |
 | `--generated-by`, `--out` | `REPORT_AUTHOR`, `REPORT_OUT` | your user name, `reports` |
-| `--experimental` | `SNYK_EXPERIMENTAL=1` | off; see [Limitations](#limitations) |
 
 Exit codes: `0` success, `1` API or input error, `2` bad arguments.
 
 ## Limitations
 
-These are missing or partial because the Export API doesn't include their data. The CI/CD and Zero-Day panels are
-available with `--experimental`, which also reads from Snyk's experimental Analytics API. Like any Snyk API version tagged
-experimental, it can change or stop working without notice, so it's off by default.
+The script only uses Snyk's supported APIs. These parts of Snyk Analytics have no supported API, so they aren't
+available:
 
-| Report or panel | Without `--experimental` | With `--experimental` | Why it's missing |
-|---|---|---|---|
-| Repositories Tested in CI/CD: repositories with recent commits | not shown | shown | The UI compares tested repositories with repositories that had commits, which Snyk reads from your source control. The export only records Snyk's own tests. |
-| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | Snyk curates the active incident and its affected assets, and that feed isn't in any export dataset. |
-| Filters for risk factors (Deployed, Public facing, OS condition) | not available | not available | Risk factors come from Snyk Insights, and the issues export has no columns for them. |
+- **Snyk Generated Pull Requests report.** No supported API returns the fix, backlog and upgrade pull requests that
+  Snyk opens. Use the report in the Snyk web UI.
+- **Repositories Tested in CI/CD: the comparison with repositories that had commits.** The UI compares how many
+  repositories Snyk tested in CI/CD with how many had recent commits, which Snyk reads from your source control. No
+  supported API provides those commit counts, so the report shows tested repositories only.
+- **Zero-Day: Snyk's active incident.** During a major zero-day event, Snyk curates an active incident, and the UI's
+  Zero-Day report opens on it, with an "Assets involved in the incident" panel. That incident comes from Snyk's own
+  curated feed rather than from your issues, and no supported API returns it. The rest of the report works from your
+  issues: name the vulnerabilities to track with `--zero-day`, as CVE IDs or Snyk IDs (`SNYK-...`), which you can
+  look up in the [Snyk Vulnerability Database](https://security.snyk.io).
+- **Filters for risk factors (Deployed, Public facing, OS condition).** These come from Snyk Insights, and the issues
+  export has no columns for them, so `--filter` can't use them.
