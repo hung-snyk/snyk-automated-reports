@@ -1,7 +1,11 @@
-"""Tests for the date-window, open-at, MTTR, SLA, PR-check adoption and scan-counting rules, and CSV cell safety. Run: python -m unittest discover -s tests"""
-import unittest
+"""Tests for the date-window, open-at, MTTR, SLA, PR-check adoption and scan-counting rules, CSV cell safety and option checks. Run: python -m unittest discover -s tests"""
+import io, os, tempfile, unittest
+from contextlib import redirect_stderr
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest import mock
+
+import snyk_reports
 
 from snykreports.common import Ctx, ceil_days, change, is_open_at, prepare_issues, safe_cell, unsafe_cell
 from snykreports.reports.base import days, period, week_starts
@@ -123,6 +127,50 @@ class Sla(unittest.TestCase):
     def test_custom_targets(self):
         t = parse_targets("critical=7:2,high=14")
         self.assertEqual((t["Critical"], t["High"], t["Low"]), ((7, 2), (14, 0), (180, 30)))
+        self.assertEqual(parse_targets("CRITICAL=0")["Critical"], (0, 0))
+
+    def test_bad_targets_are_rejected(self):
+        # a misspelled severity would otherwise be ignored, leaving the real one at its default
+        for spec in ("crit=10", "critical=-5", "high=30:-1", "critical=x", "critical"):
+            with self.assertRaises(ValueError, msg=spec): parse_targets(spec)
+
+
+class Arguments(unittest.TestCase):
+    # bad values stop the run with exit code 2 before any export, instead of giving an empty or misleading report
+    @staticmethod
+    def run_cli(*args):
+        with redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"SNYK_TOKEN": "", "SNYK_ORG_ID": "", "SNYK_GROUP_ID": ""}), \
+                mock.patch.object(snyk_reports, "load_dotenv"):
+            return snyk_reports.main(["--report", "sla-management", *args])
+
+    def test_bad_values_exit_with_2(self):
+        for args in (["--severity", "Crit"], ["--sla", "crit=10"], ["--days", "0"], ["--days", "-5"],
+                     ["--lookback-days", "0"], ["--max-rows", "-1"], ["--max-projects", "-1"]):
+            with self.assertRaises(SystemExit, msg=args) as e: self.run_cli(*args)
+            self.assertEqual(e.exception.code, 2, args)
+
+    def test_product_becomes_a_filter_for_every_report(self):
+        a = snyk_reports_args("--product", "Snyk Code", "--product", "Snyk Open Source")
+        self.assertEqual([(f.column, f.values) for f in a.filter], [("PRODUCT_NAME", ["Snyk Code", "Snyk Open Source"])])
+        self.assertEqual(a.severity, None)
+
+    def test_parsed_severity(self):
+        self.assertEqual(snyk_reports_args("--severity", "critical,HIGH", "--severity", "low").severity,
+                         ["Critical", "High", "Low"])
+
+
+def snyk_reports_args(*args):
+    """The options main() builds a run from, captured where it would start building reports (no API calls)."""
+    seen = {}
+
+    def capture(self, a, *rest): seen["args"] = a; raise SystemExit(0)
+    with redirect_stderr(io.StringIO()), mock.patch.object(snyk_reports, "load_dotenv"), \
+            mock.patch.object(snyk_reports, "scope_name", return_value="Test"), mock.patch.object(snyk_reports.Ctx, "__init__", capture), \
+            mock.patch.dict(os.environ, {"SNYK_TOKEN": "", "SNYK_ORG_ID": "", "SNYK_GROUP_ID": ""}), \
+            tempfile.TemporaryDirectory() as out:
+        try: snyk_reports.main(["--report", "sla-management", "--from-raw", out, "--out", out, *args])
+        except SystemExit: pass
+    return seen["args"]
 
 
 class Adoption(unittest.TestCase):

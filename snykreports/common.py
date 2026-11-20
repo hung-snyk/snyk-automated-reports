@@ -240,7 +240,6 @@ class Ctx:
             rows = [d for d in rows if d.get("type") != "dockerfile"]   # the UI's default "Project type" leaves Dockerfile out
         if name == "issues":
             rows = prepare_issues(rows)
-            if a.product: rows = [r for r in rows if r.get("PRODUCT_NAME") in a.product]
         self._cache[name] = rows
         return rows
 
@@ -258,7 +257,6 @@ class Ctx:
             frm = "2000-01-01T00:00:00Z" if name == "issues" else \
                 (self.end_day - timedelta(days=a.lookback_days)).strftime("%Y-%m-%dT00:00:00Z")
             filters = {DATE_FILTER.get(name, "updated"): {"from": frm, "to": to}}
-            if name == "issues" and a.product: filters["product_name"] = a.product
             if not a.save_raw:   # saved data stays unfiltered, so --from-raw can apply any filters later
                 for f in (self.alias(name, f) for f in a.filter):
                     key = API_FILTERS.get(name, {}).get(f.column) or \

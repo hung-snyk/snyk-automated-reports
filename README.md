@@ -25,6 +25,10 @@ SNYK_TOKEN=your-token
 SNYK_GROUP_ID=your-group-id
 ```
 
+Keep the token in `.env` (git ignores it) or your CI system's secret store, not on the command line, where it stays
+in your shell history. The script only reads from Snyk. Its reports hold vulnerability data, so share them as you
+would any security report.
+
 Then build a report. This writes `reports/snyk_issues-summary_<date>.pdf`:
 
 ```bash
@@ -51,7 +55,7 @@ python3 snyk_reports.py --report issues-summary
 | `dependencies-and-licenses` | open-source dependencies and their licenses |
 | `snyk-generated-prs` | pull requests Snyk opened, last 90 days; needs `--experimental` (see [Limitations](#limitations)) |
 
-`python3 snyk_reports.py --list` prints the names.
+`python3 snyk_reports.py --list` prints the names; add `--experimental` to include `snyk-generated-prs`.
 
 ## Usage
 
@@ -112,6 +116,8 @@ python3 snyk_reports.py --report risk-exposure \
   `DEPENDENCY_TYPE`, as in the UI).
 - Attack Vector: `SNYK_CVSS_VECTOR~AV:N` (Network), `AV:A`, `AV:L` or `AV:P`. CISA KEV: `CISA_KEV=true`.
   CVSS v4 exploit maturity: `EXPLOIT_MATURITY_CVSS_V4=Attacked` (or `Proof of Concept`, `Not Defined`).
+- CI/CD test parameters (the CLI flags a pipeline ran with): `INTERACTION_CATEGORIES=severity-threshold` (or
+  `all-projects`, `json-file-output`, …).
 - Ignored issues and Prevention events are left out unless you pass `--include-ignored` or filter on their status
   yourself, such as `ISSUE_STATUS=Ignored` or `IS_SUPPRESSED=true`.
 
@@ -146,15 +152,9 @@ These are missing or partial because the Export API doesn't include their data. 
 `--experimental`, which also reads from Snyk's experimental Analytics API. Like any Snyk API version tagged
 experimental, it can change or stop working without notice, so it's off by default.
 
-| Report or panel | Export API only | With `--experimental` | Reason |
+| Report or panel | Without `--experimental` | With `--experimental` | Why it's missing |
 |---|---|---|---|
-| Snyk Generated Pull Requests | not available | available | no data on Snyk-created pull requests |
-| CI/CD: committed repositories | not shown | shown | no SCM commit data |
-| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | comes from a Snyk-curated feed |
-| Filters for risk factors (Deployed, Public facing, OS condition) and CI/CD test parameters | not available | not available | no matching columns |
-
-## Security
-
-The script only reads from Snyk and never prints the token. Keep the token in `.env` or a CI secret rather than on
-the command line, and treat `reports/` as sensitive: it holds vulnerability data and, in the IDE/CLI report,
-developer names.
+| Snyk Generated Pull Requests | not available | available | None of the Export API's datasets cover the fix, backlog and upgrade pull requests that Snyk opens. |
+| Repositories Tested in CI/CD: repositories with recent commits | not shown | shown | The UI compares tested repositories with repositories that had commits, which Snyk reads from your source control. The export only records Snyk's own tests. |
+| Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | Snyk curates the active incident and its affected assets, and that feed isn't in any export dataset. |
+| Filters for risk factors (Deployed, Public facing, OS condition) | not available | not available | Risk factors come from Snyk Insights, and the issues export has no columns for them. |
