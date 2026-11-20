@@ -53,9 +53,8 @@ python3 snyk_reports.py --report issues-summary
 | `dev-ide-cli-usage` | IDE and CLI scans, last 30 days |
 | `test-usage-in-cicd-pipelines` | repositories tested in CI/CD, last 30 days |
 | `dependencies-and-licenses` | open-source dependencies and their licenses |
-| `snyk-generated-prs` | pull requests Snyk opened, last 90 days; needs `--experimental` (see [Limitations](#limitations)) |
 
-`python3 snyk_reports.py --list` prints the names; add `--experimental` to include `snyk-generated-prs`.
+`python3 snyk_reports.py --list` prints the names.
 
 ## Usage
 
@@ -148,13 +147,13 @@ Exit codes: `0` success, `1` API or input error, `2` bad arguments.
 
 ## Limitations
 
-These are missing or partial because the Export API doesn't include their data. Most of them are available with
-`--experimental`, which also reads from Snyk's experimental Analytics API. Like any Snyk API version tagged
+These are missing or partial because the Export API doesn't include their data. The CI/CD and Zero-Day panels are
+available with `--experimental`, which also reads from Snyk's experimental Analytics API. Like any Snyk API version tagged
 experimental, it can change or stop working without notice, so it's off by default.
 
 | Report or panel | Without `--experimental` | With `--experimental` | Why it's missing |
 |---|---|---|---|
-| Snyk Generated Pull Requests | not available | available | None of the Export API's datasets cover the fix, backlog and upgrade pull requests that Snyk opens. |
+| Snyk Generated Pull Requests | not available | not available | None of the Export API's datasets cover the fix, backlog and upgrade pull requests that Snyk opens, and Snyk has no supported API for them. Use the report in the Snyk web UI. |
 | Repositories Tested in CI/CD: repositories with recent commits | not shown | shown | The UI compares tested repositories with repositories that had commits, which Snyk reads from your source control. The export only records Snyk's own tests. |
 | Zero-Day: Snyk's active incident and "Assets involved in the incident" | not shown; name the CVEs with `--zero-day` | shown; without `--zero-day`, tracks the active incident | Snyk curates the active incident and its affected assets, and that feed isn't in any export dataset. |
 | Filters for risk factors (Deployed, Public facing, OS condition) | not available | not available | Risk factors come from Snyk Insights, and the issues export has no columns for them. |

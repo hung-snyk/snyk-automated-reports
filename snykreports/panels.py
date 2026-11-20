@@ -2,7 +2,7 @@
 
 Like any Snyk API version tagged ~experimental, it can change or go away without notice. It is only used when
 asked for:
-  --experimental  fills panels the Export API has no data for (and the Snyk Generated Pull Requests report)
+  --experimental  fills panels the Export API has no data for
   verify()        compares this tool's headline numbers with what the UI computes (used by a maintainer-only check)
 """
 import json, time, urllib.error, urllib.request

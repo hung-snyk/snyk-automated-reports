@@ -37,7 +37,7 @@ def main(argv=None):
     """Build the selected reports; returns the run context (None for --list) so other tools can reuse a run."""
     load_dotenv()
     try:
-        from snykreports.reports import EXPERIMENTAL_ONLY, REPORTS, UNSUPPORTED
+        from snykreports.reports import REPORTS, UNSUPPORTED
         from snykreports.reports.sla import parse_targets
     except ImportError as e:
         api.fail(f"{e}; install dependencies with: pip install -r requirements.txt")
@@ -82,21 +82,17 @@ def main(argv=None):
     ap.add_argument("--generated-by", default=env("REPORT_AUTHOR") or env("GITHUB_ACTOR") or env("USER", "snyk_reports"))
     ap.add_argument("--out", default=env("REPORT_OUT", "reports"))
     ap.add_argument("--experimental", action="store_true", default=(env("SNYK_EXPERIMENTAL") or "").lower() in ("1", "true", "yes"),
-                    help="also use Snyk's experimental Analytics API to fill the panels the Export API lacks, and to "
-                         "enable the Snyk Generated Pull Requests report (experimental APIs may change without notice)")
+                    help="also use Snyk's experimental Analytics API to fill the panels the Export API lacks "
+                         "(experimental APIs may change without notice)")
     a = ap.parse_args(argv)
 
-    hidden = set() if a.experimental else EXPERIMENTAL_ONLY
     if a.list:
-        for slug, (title, _) in REPORTS.items():
-            if slug not in hidden: print(f"{slug:32} {title}")
+        for slug, (title, _) in REPORTS.items(): print(f"{slug:32} {title}")
         for slug, why in UNSUPPORTED.items(): print(f"{slug:32} (not available: {why})")
         return
     # each run names the reports it needs; there is deliberately no "all"
     slugs = list(dict.fromkeys(s.strip() for s in (a.report or "").split(",") if s.strip()))
     if not slugs: ap.error("--report is required: name one or more reports, comma-separated (see --list)")
-    unavailable = [s for s in slugs if s in hidden]
-    if unavailable: ap.error(f"not available from the Export API: {', '.join(unavailable)}")
     unknown = [s for s in slugs if s not in REPORTS and s not in UNSUPPORTED]
     if unknown: ap.error(f"unknown report(s): {', '.join(unknown)} (see --list)")
     try: a.filter = [Filter(s) for s in a.filter]
