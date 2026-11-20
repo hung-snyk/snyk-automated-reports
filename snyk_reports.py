@@ -15,7 +15,7 @@ import argparse, json, os
 from datetime import datetime, timezone
 
 from snykreports import api, common
-from snykreports.common import Ctx, Filter
+from snykreports.common import SEVERITIES, Ctx, Filter
 
 
 def load_dotenv(path=".env"):
@@ -38,6 +38,7 @@ def main(argv=None):
     load_dotenv()
     try:
         from snykreports.reports import EXPERIMENTAL_ONLY, REPORTS, UNSUPPORTED
+        from snykreports.reports.sla import parse_targets
     except ImportError as e:
         api.fail(f"{e}; install dependencies with: pip install -r requirements.txt")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -60,8 +61,11 @@ def main(argv=None):
                     help="report window for every report (default: each report's UI default, mostly 30 days)")
     ap.add_argument("--end", help="last day of the window, YYYY-MM-DD (default: today, UTC)")
     ap.add_argument("--lookback-days", type=int, default=400, help="history exported for non-issue datasets (default 400)")
-    ap.add_argument("--product", action="append", help="e.g. 'Snyk Container' (repeatable)")
-    ap.add_argument("--severity", action="append", help="Critical|High|Medium|Low; overrides the SLA and PCI-DSS defaults")
+    ap.add_argument("--product", action="append",
+                    help="e.g. 'Snyk Container' (repeatable); same as --filter PRODUCT_NAME=..., for every report")
+    ap.add_argument("--severity", action="append",
+                    help="Critical|High|Medium|Low, any case, comma-separated or repeated; overrides the SLA and "
+                         "PCI-DSS defaults")
     ap.add_argument("--include-ignored", action="store_true")
     ap.add_argument("--filter", action="append", default=[f for f in (env("REPORT_FILTERS") or "").split(";") if f.strip()],
                     help="filter rows by an export column, like the UI filters: COLUMN=a,b | COLUMN!=a | COLUMN~text | "
@@ -97,6 +101,19 @@ def main(argv=None):
     if unknown: ap.error(f"unknown report(s): {', '.join(unknown)} (see --list)")
     try: a.filter = [Filter(s) for s in a.filter]
     except ValueError as e: ap.error(str(e))
+    # --product is shorthand for --filter PRODUCT_NAME=..., so it narrows every report with a product, not only issues
+    if a.product: a.filter.append(Filter("PRODUCT_NAME=" + ",".join(p.strip() for p in a.product)))
+    # a wrong severity, SLA target or count would otherwise give an empty or misleading report, so stop here
+    names = {s.lower(): s for s in SEVERITIES}
+    sevs = [s.strip() for v in a.severity or [] for s in v.split(",") if s.strip()]
+    if any(s.lower() not in names for s in sevs):
+        ap.error(f"--severity takes {', '.join(SEVERITIES)} (any case, comma-separated); got {', '.join(a.severity)}")
+    a.severity = [names[s.lower()] for s in sevs] or None
+    try: parse_targets(a.sla)
+    except ValueError as e: ap.error(str(e))
+    for opt, value, least in (("--days", a.days, 1), ("--lookback-days", a.lookback_days, 1),
+                              ("--max-projects", a.max_projects, 0), ("--max-rows", a.max_rows, 0)):
+        if value is not None and value < least: ap.error(f"{opt} must be {least} or more, got {value}")
     formats = {f.strip().lower() for f in a.format.split(",") if f.strip()}
     if not formats or formats - common.FORMATS:
         ap.error(f"--format takes pdf, csv and/or json, comma-separated; got {a.format!r}")

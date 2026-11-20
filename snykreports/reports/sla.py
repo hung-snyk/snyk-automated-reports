@@ -1,7 +1,6 @@
 """SLA Management. Targets default to the UI's (days to fix, "at risk" days before breach)."""
 from collections import Counter, defaultdict
 
-from ..api import fail
 from ..common import SEVERITIES, floor_days, is_open_at, write_csv
 from ..pdf import M, W
 from .base import days, labels, open_pdf, period
@@ -11,14 +10,20 @@ STATUS_COLOR = {"Within SLA": "#4aa58f", "At risk": "#e8833a", "Breached": "#e03
 
 
 def parse_targets(spec):
+    """--sla "critical=15:3,high=30": days to fix and "at risk" days (default 0) per severity, any case.
+    Raises ValueError for an unknown severity or anything but whole days, 0 or more."""
     targets = dict(DEFAULT_TARGETS)
     for part in filter(None, (spec or "").split(",")):
         try:
             sev, val = part.split("=")
             target, risk = (val.split(":") + ["0"])[:2]
-            targets[sev.strip().title()] = (int(target), int(risk))
+            sev, target, risk = sev.strip().title(), int(target), int(risk)
         except ValueError:
-            fail(f"--sla expects e.g. critical=15:3,high=30:10, got {part!r}")
+            raise ValueError(f"--sla expects e.g. critical=15:3,high=30:10, got {part!r}") from None
+        if sev not in DEFAULT_TARGETS:
+            raise ValueError(f"--sla: unknown severity in {part!r}; use {', '.join(s.lower() for s in DEFAULT_TARGETS)}")
+        if target < 0 or risk < 0: raise ValueError(f"--sla: days can't be negative, got {part!r}")
+        targets[sev] = (target, risk)
     return targets
 
 
