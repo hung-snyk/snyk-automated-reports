@@ -17,7 +17,8 @@ def zero_day(ctx):
         return []
     all_rows = [r for r in ctx.data("issues") if r.get("PROBLEM_ID") in cves or cves & set(jlist(r.get("CVE")))]
     status = Counter(r["_status"] for r in all_rows)
-    rows = [r for r in all_rows if r["_status"] != "Ignored"]
+    keep_ignored = ctx.keeps_ignored("ISSUE_STATUS")
+    rows = all_rows if keep_ignored else [r for r in all_rows if r["_status"] != "Ignored"]
     start, end = ctx.window(30)
     pts = days(start, end)
     label = ", ".join(sorted(cves))
@@ -27,9 +28,11 @@ def zero_day(ctx):
                {"label": "Ignored Issues", "value": status["Ignored"]}], w=900)
     targets = defaultdict(Counter)
     for r in rows: targets[r.get("PROJECT_TARGET_DISPLAY_NAME") or "Unknown"][r["_status"]] += 1
-    trows = sorted(([t, c["Open"], c["Resolved"]] for t, c in targets.items()), key=lambda x: (-x[1], x[0]))
+    shown = ["Open", "Resolved"] + (["Ignored"] if keep_ignored else [])
+    trows = sorted(([t] + [c[s] for s in shown] for t, c in targets.items()), key=lambda x: (-x[1], x[0]))
     pdf.section("Impacted Repositories", "Breakdown of the selected zero-day vulnerability issues across targets.")
-    pdf.table([("Target Name", 0.6, "text"), ("Open Issues", 0.2, "num"), ("Resolved Issues", 0.2, "num")], trows)
+    w = 0.4 / len(shown)
+    pdf.table([("Target Name", 0.6, "text")] + [(f"{s} Issues", w, "num") for s in shown], trows)
     issues = sorted(all_rows, key=lambda r: (-float(r.get("SCORE") or 0), -SEV_RANK.get(r.get("ISSUE_SEVERITY"), 0)))
     pdf.section("All Issues", "Summary of all issues for the selected zero-day vulnerability.")
     pdf.table([("Severity", 0.06, "sev"), ("Score", 0.05, "num"), ("CVE", 0.11, "text"), ("Issue", 0.17, "link"),

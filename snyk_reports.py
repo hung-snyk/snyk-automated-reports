@@ -66,7 +66,9 @@ def main(argv=None):
     ap.add_argument("--severity", action="append",
                     help="Critical|High|Medium|Low, any case, comma-separated or repeated; overrides the SLA and "
                          "PCI-DSS defaults")
-    ap.add_argument("--include-ignored", action="store_true")
+    ap.add_argument("--include-ignored", action="store_true",
+                    help="keep ignored issues and ignored Prevention events, which are left out by default as in the "
+                         "UI; reports that show open issues then show ignored ones too")
     ap.add_argument("--filter", action="append", default=[f for f in (env("REPORT_FILTERS") or "").split(";") if f.strip()],
                     help="filter rows by an export column, like the UI filters: COLUMN=a,b | COLUMN!=a | COLUMN~text | "
                          "COLUMN!~text | COLUMN=LO..HI | COLUMN>=LO | COLUMN<=HI (numbers or YYYY-MM-DD) | "
