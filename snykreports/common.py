@@ -303,8 +303,10 @@ class Ctx:
         return self.args.include_ignored or any(f.column == column for f in self.args.filter)
 
     def default_statuses(self, *statuses):
-        """A report's default Issue Status. An ISSUE_STATUS --filter replaces it, like changing the UI's status chip."""
-        return None if any(f.column == "ISSUE_STATUS" for f in self.args.filter) else list(statuses)
+        """A report's default Issue Status, plus Ignored with --include-ignored. An ISSUE_STATUS --filter replaces it,
+        like changing the UI's status chip."""
+        if any(f.column == "ISSUE_STATUS" for f in self.args.filter): return None
+        return list(statuses) + (["Ignored"] if self.args.include_ignored and "Ignored" not in statuses else [])
 
     def issues(self, statuses=None):
         rows = self.data("issues")

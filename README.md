@@ -118,7 +118,10 @@ python3 snyk_reports.py --report risk-exposure \
 - CI/CD test parameters (the CLI flags a pipeline ran with): `INTERACTION_CATEGORIES=severity-threshold` (or
   `all-projects`, `json-file-output`, …).
 - Ignored issues and Prevention events are left out unless you pass `--include-ignored` or filter on their status
-  yourself, such as `ISSUE_STATUS=Ignored` or `IS_SUPPRESSED=true`.
+  yourself, such as `ISSUE_STATUS=Ignored` or `IS_SUPPRESSED=true`. With `--include-ignored`, ignored issues count
+  as open where a report tracks open issues over time, are added to the reports that list open issues (Issues Detail,
+  Vulnerabilities Detail, OWASP, CWE, PCI-DSS), and appear in Zero-Day's targets table and charts. An
+  `ISSUE_STATUS` filter takes precedence over it.
 
 ### Options
 
@@ -137,7 +140,7 @@ python3 snyk_reports.py --report risk-exposure \
 | `--filter` | `COLUMN=VALUE` and the other forms in [Filters](#filters); repeatable | `--filter "ISSUE_SEVERITY=Critical,High"` |
 | `--product` | `Snyk Open Source`, `Snyk Code`, `Snyk Container`, `Snyk IaC`, `Snyk Secrets`; repeatable | `--product "Snyk Code"` |
 | `--severity` | `critical`, `high`, `medium`, `low`, any case, comma-separated | `--severity critical,high` |
-| `--include-ignored` | no value | `--include-ignored` |
+| `--include-ignored` | no value; keeps ignored issues and Prevention events (see [Filters](#filters)) | `--include-ignored` |
 | `--zero-day` | a CVE (`CVE-…`) or Snyk vulnerability ID (`SNYK-…`); repeat the flag for more | `--zero-day CVE-2021-44228` |
 | `--sla` | `SEVERITY=DAYS` or `SEVERITY=DAYS:AT_RISK_DAYS`, comma-separated (default: `critical=15:3,high=30:10,medium=90:20,low=180:30`) | `--sla critical=7:2,high=14:5` |
 | `--max-projects` | a number, 0 or more; `0` = all (default 50) | `--max-projects 0` |
